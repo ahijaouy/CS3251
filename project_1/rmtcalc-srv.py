@@ -2,6 +2,7 @@
 
 """
 Project 1
+
 """
 
 import argparse
@@ -12,8 +13,12 @@ from abc import ABCMeta, abstractmethod
 class SocketServer(metaclass=ABCMeta):
 
     def __init__(self, **kwargs):
-        self.HOST = kwargs.get('host', '127.0.0.1')
+        # self.HOST = kwargs.get('host', '127.0.0.1')
+        # self.HOST = socket.gethostname()
+        self.HOST = "127.0.0.1"
         self.PORT = kwargs.get('port', 3000)
+        print("Socket created!\nHost:%s\nPort:%s" %
+              (self.HOST, str(self.PORT)))
 
     def generate_16_byte_string(self, data):
         to_fill = 16 - len(data)
@@ -106,23 +111,30 @@ class TCPSocketServer(SocketServer):
             sock.bind((self.HOST, self.PORT))
             sock.listen()
 
-            while True:
-                # accept connections from outside
-                (clientsocket, address) = sock.accept()
-                # now do something with the clientsocket
-                # in this case, we'll pretend this is a threaded server
-                with clientsocket:
-                    while True:
+            try:
+                while True:
+                    # accept connections from outside
+                    (clientsocket, address) = sock.accept()
+                    # now do something with the clientsocket
+                    # in this case, we'll pretend this is a threaded server
+                    with clientsocket:
                         print("Connected to client: ", address)
+                        while True:
 
-                        data = clientsocket.recv(1024).decode()
-                        print("Received from client", data)
+                            data = clientsocket.recv(1024)
+                            if not data:
+                                print("Disconnected from client:", address)
+                                break
+                            data = data.decode()
+                            print("Received from client", data)
 
-                        result = self.handle_client_connection(data)
+                            result = self.handle_client_connection(data)
 
-                        clientsocket.sendall(result.encode())
-                # ct = client_thread(clientsocket)
-                # ct.run()
+                            clientsocket.sendall(result.encode())
+            except KeyboardInterrupt:
+                print("Closing server socket")
+            finally:
+                sock.close()
 
 
 class UDPSocketServer(SocketServer):
@@ -143,10 +155,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Remote Calculator Server')
     parser.add_argument("protocol", help="Select TCP or UDP")
     parser.add_argument("port", help="Select Port to use")
-    # args = parser.parse_args()
+    args = parser.parse_args()
 
-    # protocol = args.protocol
-    # port = args.port
+    server_socket = None
+    if args.protocol == "UDP":
+        server_socket = UDPSocketServer(port=int(args.port))
+    elif args.protocol == "TCP":
+        server_socket = TCPSocketServer(port=int(args.port))
+    else:
+        print("The protoclol '%s' you provided is invalid." % args.protocol)
+        raise ValueError
 
-    server_socket = UDPSocketServer()
     server_socket.connect()

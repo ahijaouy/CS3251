@@ -40,6 +40,10 @@ class SocketClient(metaclass=ABCMeta):
         else:
             return "Result: %s\n%s" % (result, short_message)
 
+    def should_disconnect(self, prompt):
+        user_command = str(prompt).lower()
+        return user_command.find('quit') != -1
+
     @abstractmethod
     def connect(self):
         pass
@@ -53,6 +57,10 @@ class TCPSocketClient(SocketClient):
             while True:
                 prompt = input(
                     "Provide a math problem to solve (format: num1 operand num2)")
+                if self.should_disconnect(prompt):
+                    print("Closing socket connection.")
+                    sock.close()
+                    break
                 prompt = self.generate_packet_string(prompt)
 
                 print("About to send: ", prompt.encode())
@@ -70,6 +78,10 @@ class UDPSocketClient(SocketClient):
             while True:
                 prompt = input(
                     "Provide a math problem to solve (format: num1 operand num2)")
+                if self.should_disconnect(prompt):
+                    print("Closing socket connection.")
+                    sock.close()
+                    break
                 prompt = self.generate_packet_string(prompt)
 
                 print("About to send: ", prompt.encode())
@@ -87,26 +99,12 @@ if __name__ == "__main__":
     parser.add_argument("port", help="Provide Server Port to use")
     args = parser.parse_args()
 
-    protocol = args.protocol
-    server = args.server
-    port = args.port
-
-    # client_socket = TCPSocketClient(host=server, port=port)
-    client_socket = UDPSocketClient()
+    client_socket = None
+    if args.protocol == "UDP":
+        client_socket = UDPSocketClient(host=args.server, port=int(args.port))
+    elif args.protocol == "TCP":
+        client_socket = TCPSocketClient(host=args.server, port=int(args.port))
+    else:
+        print("The protoclol '%s' you provided is invalid." % args.protocol)
+        raise ValueError
     client_socket.connect()
-
-    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    #     # s.connect((server, port))
-    #     sock.connect((HOST, PORT))
-
-    #     while True:
-    #         prompt = input(
-    #             "Provide a math problem to solve (format: num1 operand num2)")
-    #         prompt = generate_packet_string(prompt)
-
-    #         print(prompt.encode())
-
-    #         sock.sendall(prompt.encode())
-
-    #         data = sock.recv(1024).decode()
-    #         print("Received from server", data)
