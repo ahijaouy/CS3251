@@ -13,6 +13,10 @@
 - Requires python 3
 - Requires server to be started before client
 
+## Outside Resources Referenced
+- https://docs.python.org/3/howto/sockets.html
+- https://realpython.com/python-sockets/
+
 ## Run Instructions
 
 ### Instructions to run TCP Server
