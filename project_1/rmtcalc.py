@@ -44,6 +44,13 @@ class SocketClient(metaclass=ABCMeta):
         user_command = str(prompt).lower()
         return user_command.find('quit') != -1
 
+    def print_server_response(self, response):
+        print(self.parse_server_response(response) + '\n')
+
+    def get_user_input(self):
+        return input(
+            "Provide a math problem to solve (format= num1 operand num2):\n")
+
     @abstractmethod
     def connect(self):
         pass
@@ -54,42 +61,49 @@ class TCPSocketClient(SocketClient):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect((self.HOST, self.PORT))
 
-            while True:
-                prompt = input(
-                    "Provide a math problem to solve (format: num1 operand num2)")
-                if self.should_disconnect(prompt):
-                    print("Closing socket connection.")
-                    sock.close()
-                    break
-                prompt = self.generate_packet_string(prompt)
+            try:
+                while True:
+                    prompt = self.get_user_input()
+                    if self.should_disconnect(prompt):
+                        print("Closing socket connection.")
+                        sock.close()
+                        break
+                    prompt = self.generate_packet_string(prompt)
 
-                print("About to send: ", prompt.encode())
+                    # print("About to send: ", prompt.encode())
 
-                sock.sendall(prompt.encode())
+                    sock.sendall(prompt.encode())
 
-                data = sock.recv(1024).decode()
-                print(self.parse_server_response(data))
+                    data = sock.recv(1024)
+                    self.print_server_response(data.decode())
+            except KeyboardInterrupt:
+                print("Closing Socket")
+                sock.close()
 
 
 class UDPSocketClient(SocketClient):
     def connect(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             server_address = (self.HOST, self.PORT)
-            while True:
-                prompt = input(
-                    "Provide a math problem to solve (format: num1 operand num2)")
-                if self.should_disconnect(prompt):
-                    print("Closing socket connection.")
-                    sock.close()
-                    break
-                prompt = self.generate_packet_string(prompt)
 
-                print("About to send: ", prompt.encode())
+            try:
+                while True:
+                    prompt = self.get_user_input()
+                    if self.should_disconnect(prompt):
+                        print("Closing socket connection.")
+                        sock.close()
+                        break
+                    prompt = self.generate_packet_string(prompt)
 
-                sock.sendto(prompt.encode(), server_address)
+                    # print("About to send: ", prompt.encode())
 
-                data, address = sock.recvfrom(1024)
-                print(self.parse_server_response(data.decode()))
+                    sock.sendto(prompt.encode(), server_address)
+
+                    data, address = sock.recvfrom(1024)
+                    self.print_server_response(data.decode())
+            except KeyboardInterrupt:
+                print("Closing Socket")
+                sock.close()
 
 
 if __name__ == "__main__":
