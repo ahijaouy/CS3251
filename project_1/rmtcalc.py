@@ -13,6 +13,9 @@ class SocketClient(metaclass=ABCMeta):
     def __init__(self, **kwargs):
         self.HOST = kwargs.get('host', '127.0.0.1')
         self.PORT = kwargs.get('port', 3000)
+        # print(self.HOST)
+        # self.HOST = socket.gethostbyname(self.HOST)
+        # self.HOST = socket.gethostbyaddr(self.HOST)
 
     def generate_16_byte_string(self, data):
         to_fill = 16 - len(data)
