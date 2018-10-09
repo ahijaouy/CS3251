@@ -101,7 +101,6 @@ class UDPSocketClient(SocketClient):
                     # print("About to send: ", prompt.encode())
 
                     sock.sendto(prompt.encode(), server_address)
-
                     data, address = sock.recvfrom(1024)
                     self.print_server_response(data.decode())
             except KeyboardInterrupt:
