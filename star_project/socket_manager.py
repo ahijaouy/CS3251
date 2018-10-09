@@ -19,11 +19,6 @@ class SocketManager():
         self.NAME = kwargs.get("name", "Default Name")
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(self.HOST, self.PORT)
-        self.heartbeat_messages = queue.Queue()
-        self.rtt_messages = queue.Queue()
-        self.discovery_messages = queue.Queue()
-        self.app_messages = queue.Queue()
-        self.ack_messages = queue.Queue()
         self.messages = {
             "heartbeat": queue.Queue(),
             "rtt": queue.Queue(),

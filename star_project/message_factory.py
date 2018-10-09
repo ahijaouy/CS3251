@@ -34,6 +34,7 @@ class DiscoveryMessage():
     def __init__(self, raw_packet_data, address):
         TYPE_STRING = "Discovery"
         TYPE_CODE = "000"  # TODO add proper code
+        DIRECTION = ""  # could be 0 or 1
 
         super().__init__(raw_packet_data, address)
 
@@ -42,23 +43,35 @@ class DiscoveryMessage():
 
 class HeartbeatMessage():
     def __init__(self, raw_packet_data, address):
+        TYPE_STRING = "Heartbeat"
+        TYPE_CODE = "000"  # TODO add proper code
+
         super().__init__(raw_packet_data, address)
         # TODO Add Message specific implementation
 
 
 class RTTMessage():
     def __init__(self, raw_packet_data, address):
+        TYPE_STRING = "RTT"
+        TYPE_CODE = "000"  # TODO add proper code
+
         super().__init__(raw_packet_data, address)
         # TODO Add Message specific implementation
 
 
 class AppMessage():
     def __init__(self, raw_packet_data, address):
+        TYPE_STRING = "App"
+        TYPE_CODE = "000"  # TODO add proper code
+
         super().__init__(raw_packet_data, address)
         # TODO Add Message specific implementation
 
 
 class AckMessage():
     def __init__(self, raw_packet_data, address):
+        TYPE_STRING = "Ack"
+        TYPE_CODE = "000"  # TODO add proper code
+
         super().__init__(raw_packet_data, address)
         # TODO Add Message specific implementation
