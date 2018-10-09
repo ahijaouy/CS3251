@@ -7,6 +7,7 @@ import socket
 import time
 import threading
 import queue
+from message_factory import MessageFactory
 
 
 class SocketManager():
@@ -31,6 +32,9 @@ class SocketManager():
             "ack": queue.Queue(),
         }
 
+    def send(self, data, destination):
+        self.sock.sendto(data.encode(), destination)
+
     def stop_listening(self):
         self.LISTENING = False
 
@@ -39,62 +43,59 @@ class SocketManager():
         try:
             while self.LISTENING:
                 data, address = self.sock.recvfrom(1024)
-                self.process_incoming_packet(data, address)
+                self._process_incoming_packet(data, address)
 
         except Exception as e:
             print(f'Exception {e} occured in Socket Manager: {self.NAME}', e)
         finally:
             self.sock.close()
 
-    def process_incoming_packet(self, data, address):
+    def _process_incoming_packet(self, data, address):
         """
         Takes an incomming packet and uses the Type field of the packet
         to put it in the proper message queue.
         """
-        packet_type = data["type"]
+        new_message = MessageFactory.create_message(data, address)
+        self._put_new_message_in_queue(new_message)
 
-    def put_new_message_in_queue(self, message, address):
+    def _put_new_message_in_queue(self, message):
         """
         Takes paresed data from incomming messaged and uses the Type field 
         of the packet to put it in the proper message queue.
         """
-        packet_type = message["type"]
-        self.messages[packet_type].put(message)
-
-    def send(self, data, destination):
-        self.sock.sendto(data.encode(), destination)
+        self.messages[message["type"]].put(message)
 
     def get_heartbeat_message(self):
-        return self.heartbeat_messages.get()
+        return self.messages["heartbeat"].get()
 
     def mark_heartbeat_message_read(self):
-        if self.heartbeat_messages.not_empty:
-            self.heartbeat_messages.task_done()
+        if self.messages["heartbeat"].not_empty:
+            self.messages["heartbeat"].task_done()
 
     def get_rtt_message(self):
-        return self.rtt_messages.get()
+        return self.messages["rtt"].get()
 
     def mark_rtt_message_read(self):
-        if self.rtt_messages.not_empty:
-            self.rtt_messages.task_done()
+        if self.messages["rtt"].not_empty:
+            self.messages["rtt"].task_done()
 
     def get_discovery_message(self):
-        return self.discovery_messages.get()
+        return self.messages["discovery"].get()
 
     def mark_discovery_message_read(self):
-        if self.discovery_messages.not_empty:
-            self.discovery_messages.task_done()
+        if self.messages["discovery"].not_empty:
+            self.messages["discovery"].task_done()
 
     def get_app_message(self):
-        return self.app_messages.get()
+        return self.messages["app"].get()
 
     def mark_app_message_read(self):
-        if self.app_messages.not_empty:
-            self.app_messages.task_done()
+        if self.messages["app"].not_empty:
+            self.messages["app"].task_done()
 
     def get_ack_message(self):
-        return self.ack_messages.get()
+        return self.messages["ack"].get()
 
     def mark_ack_message_read(self):
-        if self.ack_messages.not_empty:
-            self.ack_messages.task_done()
+        if self.messages["ack"].not_empty:
+            self.messages["ack"].task_done()
