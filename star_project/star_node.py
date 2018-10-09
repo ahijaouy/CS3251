@@ -6,6 +6,8 @@ StarNet Node
 import argparse
 import socket
 import time
+import json
+from contact_node import ContactNode
 
 
 class StarNode():
@@ -17,8 +19,27 @@ class StarNode():
         self.POC_IP = kwargs.get('poc_ip', None)
         self.POC_PORT = int(kwargs.get('poc_port', None))
         self.max_num_nodes = int(kwargs.get('max_num_nodes', None))
+
+        self.directory = {}
         if self.POC_NAME:
             self.contact_poc()
+
+    def serialize_directory(self):
+        directory = []
+        for key in self.directory:
+            directory.push(self.directory[key].to_json())
+        return json.dumps(directory)
+
+    def deserialize_directory(self, serialized):
+        deserialized = json.loads(serialized)
+        directory = []
+        for node_json in deserialized:
+            directory.push(ContactNode.create_from_json(node_json))
+        return directory
+
+    def merge_into_directory(directory):
+        for key in directory:
+            self.directory[key] = directory[key]
 
     def _send_packet(self, data, destination):
         """
