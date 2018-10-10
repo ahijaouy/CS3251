@@ -10,10 +10,10 @@ import json
 
 class ContactNode():
 
-    def __init__(self, **kwargs):
-        self.name = kwargs.get('name', None)
-        self.ip = kwargs.get('ip', None)
-        self.port = int(kwargs.get('port', None))
+    def __init__(self, name, ip, port):
+        self.name = name
+        self.ip = ip
+        self.port = port
         self.rtt = None
 
     @classmethod

@@ -1,75 +1,104 @@
 #!/usr/bin/env python3
 """
 StarNet Node
+
+1. Upon startup attempt to contact POC if one is given
+2. Heartbeat Thread starts trying to reach Contact Nodes
+3. RTT Thread starts calculating RTT
 """
 
 import argparse
 import socket
 import time
 import json
+from threading import Thread
+
 from contact_node import ContactNode
+from socket_manager import SocketManager
+from message_factory import MessageFactory, DiscoveryMessage
+from logger import Logger
 
 
 class StarNode():
+    HEARTBEAT_TIMEOUT = 5  # seconds
+    RTT_TIMEOUT = 5  # seconds
 
-    def __init__(self, **kwargs):
-        self.sock = None  # TODO implement
-        self.ack_timeout = 1000
-        self.POC_NAME = kwargs.get('poc_name', None)
-        self.POC_IP = kwargs.get('poc_ip', None)
-        self.POC_PORT = int(kwargs.get('poc_port', None))
-        self.max_num_nodes = int(kwargs.get('max_num_nodes', None))
-
+    def __init__(self, name, port, num_nodes, host=None, poc_name=None, poc_ip=None, poc_port=None, verbose=False):
+        self.name = name
+        self.port = port
+        self.num_nodes = num_nodes
         self.directory = {}
-        if self.POC_NAME:
-            self.contact_poc()
+        self.central_node = None
+        self.poc = self.set_poc(poc_name, poc_ip, poc_port)
+        self.socket_manager = SocketManager(name, port, host, verbose)
+        self.log = Logger(name, verbose=True)
 
-    def serialize_directory(self):
+    def start(self):
+        self.socket_manager.start()
+        self.log.debug("Socket Started Successfully")
+
+        self.try_to_contact_poc()
+        # self.start_heartbeat()
+        # self.start_rtt_calculations()
+
+    def send_heartbeat(self):
+        while True:
+            self.log.debug("Sending Heartbeat")
+
+            time.sleep(self.HEARTBEAT_TIMEOUT)
+
+    def start_heartbeat(self):
+        heartbeat_thread = Thread(target=self.send_heartbeat)
+        heartbeat_thread.start()
+
+    def send_rtt(self):
+        while True:
+            self.log.debug("Sending RTT")
+            time.sleep(self.RTT_TIMEOUT)
+
+    def start_rtt_calculations(self):
+        rtt_thread = Thread(target=self.send_rtt)
+        rtt_thread.start()
+
+    def set_poc(self, name, ip, port):
+        poc = None
+        if name != None:
+            poc = ContactNode(name, ip, port)
+            self.directory[name] = poc
+        return poc
+
+    def _serialize_directory(self):
         directory = []
         for key in self.directory:
             directory.push(self.directory[key].to_json())
         return json.dumps(directory)
 
-    def deserialize_directory(self, serialized):
+    def _deserialize_directory(self, serialized):
         deserialized = json.loads(serialized)
         directory = []
         for node_json in deserialized:
             directory.push(ContactNode.create_from_json(node_json))
         return directory
 
-    def merge_into_directory(directory):
+    def _merge_into_directory(directory):
         for key in directory:
             self.directory[key] = directory[key]
 
-    def _send_packet(self, data, destination):
-        """
-        Sends UDP Packet
-        """
-        try:
-            sock.sendto(data.encode(), destination)
-        except Exception as e:
-            print("Exception Occured while sendin packet.\n ", e)
-
-    def send_to(self, data, destination):
-        """
-        Sends message to destintion and waites for ACK
-        """
-        confirmed = False
-
-        # while not confirmed:
-        start_time = time.time()
-        while time.time()-start_time < self.ack_timeout:
-            data, address = sock.recvfrom(1024)
-
     def broadcast(self, data, dests):
-        for dest in dests:
-            self.send_to(data, dest)
-
-    def connect(self):
         pass
+
+    def try_to_contact_poc(self):
+        if self.poc != None:
+            poc_thread = Thread(target=self.contact_poc)
+            poc_thread.start()
+            self.log.debug("Started Thread to contact POC")
 
     def contact_poc(self):
-        """
-        This should probably be done in a thread...
-        """
-        pass
+        # TODO Should try to contact POC repeatedly until a response is resieved
+
+        address = (self.poc.ip, self.poc.port)
+
+        discovery_message = MessageFactory.generate_discovery_message(
+            address)
+
+        self.socket_manager.send_message(discovery_message)
