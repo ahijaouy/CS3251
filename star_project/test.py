@@ -5,14 +5,14 @@ from threading import Thread
 
 node_1 = StarNode(name="Node1", port=3000, num_nodes=2, verbose=True)
 
-node_1.start()
+node_1.start_non_blocking()
 
-host = socket.gethostname()
+host = socket.gethostbyname(socket.gethostname())
 # host = "127.0.0.1"
 node_2 = StarNode(name="Node2", port=3001, num_nodes=2, poc_name="Node1",
                   poc_ip=host, poc_port=3000, verbose=True)
 
-node_2.start()
+node_2.start_non_blocking()
 
 
 # def listen(sock):

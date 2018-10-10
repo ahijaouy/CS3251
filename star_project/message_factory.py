@@ -7,14 +7,15 @@ from abc import ABCMeta, abstractmethod
 
 
 class AbstractMessage(metaclass=ABCMeta):
-    def __init__(self, uuid, address):
+    def __init__(self, uuid, origin, destination, **kwargs):
         self.id = uuid
-        self.origin_address = address
+        self.origin_address = origin
+        self.destination_address = destination
 
     def prepare_packet(self):
         string = self.get_packet_string()
         print("Inside Prepare_Packet: ", string)
-        return (self.get_packet_string(), self.origin_address)
+        return (self.get_packet_string(), self.destination_address)
 
     @abstractmethod
     def create_from_packet(cls):
@@ -29,23 +30,29 @@ class DiscoveryMessage(AbstractMessage):
     TYPE_STRING = "discovery"
     TYPE_CODE = "D"
 
-    def __init__(self, uuid, address, direction="0", payload=""):
-        super().__init__(uuid, address)
-        self.direction = direction
-        self.payload = payload
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.direction = kwargs.get('direction', '0')
+        self.payload = kwargs.get('payload', '')  # json string
 
     @classmethod
-    def create_from_packet(cls, uuid, address, packet_data):
-        direction = packet_data[1]
-        payload = json.loads(packet_data[2:])
-        return cls(uuid, address, direction, payload)
+    def create_from_packet(cls, packet_data, **kwargs):
+        return cls(
+            direction=packet_data[1],
+            payload=packet_data[2:],
+            **kwargs)
+
+    @classmethod
+    def create_response(cls, uuid, origin, destination, directory):
+        return cls(uuid, origin, destination, json.dumps(directory))
 
     def get_packet_string(self):
-        # print("DiscoveryMessage.get_packet_string()")
-        # print("code: ", self.TYPE_CODE)
-        # print("direction:", self.direction)
-        # print("payload:", self.payload)
         return self.TYPE_CODE + self.direction + self.payload
+
+    def is_response_to(self, original_message):
+        if self.direction == "1" and self.origin_address == original_message.destination_address:
+            return True
+        return False
 
 
 class HeartbeatMessage(AbstractMessage):
@@ -53,11 +60,11 @@ class HeartbeatMessage(AbstractMessage):
     TYPE_CODE = "H"
 
     def __init__(self, uuid, address):
-        super().__init__(uuid, address)
+        super().__init__(uuid, origin, destination)
         # TODO Add Message specific implementation
 
     @classmethod
-    def create_from_packet(cls, uuid, address, packet_data):
+    def create_from_packet(cls, uuid, origin, destination, packet_data):
         pass  # TODO: Implement
 
     def get_packet_string(self):
@@ -69,12 +76,12 @@ class RTTMessage(AbstractMessage):
     TYPE_CODE = "R"
 
     def __init__(self, uuid, address):
-        super().__init__(uuid, address)
+        super().__init__(uuid, origin, destination)
 
         # TODO Add Message specific implementation
 
     @classmethod
-    def create_from_packet(cls, uuid, address, packet_data):
+    def create_from_packet(cls, uuid, origin, destination, packet_data):
         pass  # TODO: Implement
 
     def get_packet_string(self):
@@ -86,12 +93,12 @@ class AppMessage(AbstractMessage):
     TYPE_CODE = "A"
 
     def __init__(self, uuid, address):
-        super().__init__(uuid, address)
+        super().__init__(uuid, origin, destination)
 
         # TODO Add Message specific implementation
 
     @classmethod
-    def create_from_packet(cls, uuid, address, packet_data):
+    def create_from_packet(cls, uuid, origin, destination, packet_data):
         pass  # TODO: Implement
 
     def get_packet_string(self):
@@ -103,15 +110,15 @@ class AckMessage(AbstractMessage):
     TYPE_CODE = "K"
 
     def __init__(self, uuid, address):
-        super().__init__(uuid, address, sent_id)
+        super().__init__(uuid, origin, destination, sent_id)
         self.sent_id = sent_id
 
         # TODO Add Message specific implementation
 
     @classmethod
-    def create_from_packet(cls, uuid, address, packet_data):
+    def create_from_packet(cls, uuid, origin, destination, packet_data):
         sent_id = packet_data[1:2]
-        return cls(uuid, address, sent_id)
+        return cls(uuid, origin, destination, sent_id)
 
     def get_packet_string(self):
         return self.TYPE_CODE + self.sent_id
@@ -137,14 +144,12 @@ class MessageFactory():
     @classmethod
     def _get_message_type(cls, raw_packet_data):
         code_bit = raw_packet_data[:1]
-        return self.code_mapping[code_bit]
+        return cls.code_mapping[code_bit]
 
     @classmethod
-    def create_message(cls, packet_data, address):
+    def create_message(cls, packet_data, **kwargs):
         message_type = cls._get_message_type(packet_data)
-        new_message = message_type.create_from_packet(
-            cls.get_new_id(), address, packet_data)
-        return new_message
+        return message_type.create_from_packet(packet_data, uuid=cls.get_new_id(), **kwargs)
 
     @classmethod
     def generate_ack_message(cls, packet_data, address):
@@ -153,6 +158,5 @@ class MessageFactory():
         return ack
 
     @classmethod
-    def generate_discovery_message(cls, address, direction="0", payload=""):
-        return DiscoveryMessage(
-            cls.get_new_id(), address, direction, payload)
+    def generate_discovery_message(cls, **kwargs):
+        return DiscoveryMessage(uuid=cls.get_new_id(), **kwargs)

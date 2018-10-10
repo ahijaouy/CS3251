@@ -20,7 +20,7 @@ class ReliableSocket():
 
         # self.host = host if host else socket.gethostname()
         # self.host = "127.0.0.1"
-        self.host = socket.gethostname()
+        self.host = socket.gethostbyname(socket.gethostname())
         self.port = port
         self.is_listening = False
         self.ack_timeout = 5  # seconds
@@ -28,6 +28,9 @@ class ReliableSocket():
         self.process_incoming_packet = process_incoming_packet_func
         self.sock.bind((self.host, self.port))
         self.acks = queue.Queue()
+
+    def get_address(self):
+        return (self.host, self.port)
 
     def _verify_int(self, port):
         if type(port) != int:
@@ -79,7 +82,7 @@ class ReliableSocket():
                 data, address = self.sock.recvfrom(1024)
                 self.log.debug(f'Socket received packet from: {address[0]}')
                 # self.send_ack(data, address)
-                # self.process_incoming_packet(data, address)
+                self.process_incoming_packet(data.decode(), address)
 
         except Exception as e:
             self.log.error("in ReliableSocket while listening for packets", e)
