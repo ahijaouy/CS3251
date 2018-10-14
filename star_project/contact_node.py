@@ -22,6 +22,15 @@ class ContactNode():
         data = json.loads(raw_json)
         return cls(name=data["name"], ip=data["ip"], port=data["port"])
 
+    def get_address(self):
+        return (self.ip, self.port)
+
+    def get_16_byte_name(self):
+        return format(self.name, '>16')
+
+    def get_name(self):
+        return self.name.strip()
+
     def to_json(self):
         "serializes current object to json"
         return json.dumps({

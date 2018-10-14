@@ -9,7 +9,7 @@ node_1.start_non_blocking()
 
 host = socket.gethostbyname(socket.gethostname())
 # host = "127.0.0.1"
-node_2 = StarNode(name="Node2", port=3001, num_nodes=2, poc_name="Node1",
+node_2 = StarNode(name="Node2", port=3001, num_nodes=2,
                   poc_ip=host, poc_port=3000, verbose=True)
 
 node_2.start_non_blocking()

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Logger
+
+Provides Basic Logging functions in a single place.
 """
 
 

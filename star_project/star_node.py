@@ -15,73 +15,62 @@ from threading import Thread
 
 from contact_node import ContactNode
 from socket_manager import SocketManager
-from message_factory import MessageFactory, DiscoveryMessage
+from message_factory import MessageFactory
 from logger import Logger
 
 
 class StarNode():
+    # Timeout constants
     HEARTBEAT_TIMEOUT = 5  # seconds
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
 
-    def __init__(self, name, port, num_nodes, host=None, poc_name=None, poc_ip=None, poc_port=None, verbose=False):
-
-        self.name = name
-        self.port = port
+    def __init__(self, name, port, num_nodes, host=None, poc_ip=None, poc_port=None, verbose=False):
+        # Initialize instance variables
+        self._log = Logger(name, verbose=True)
         self.num_nodes = num_nodes
-
         self.central_node = None
-        self.poc = self.set_poc(poc_name, poc_ip, poc_port)
+        self.directory = {}
+        if poc_ip != None and poc_port != None:
+            self.poc = ContactNode("poc", ip, port)
+        else:
+            self.poc = None
+
+        # Initialize things related to the socket
         self.socket_manager = SocketManager(
             name, port, host, self.report, verbose)
         self.address = self.socket_manager.get_address()
-        self.directory = {}
-        self.directory[name] = ContactNode(
-            name=name,
-            ip=self.address[0],
-            port=self.address[1]
-        )
-        self.log = Logger(name, verbose=True)
-        self.last_contacted = time.time()
+        self.directory[name] = self.socket_manager.node
 
-    def report(self):
-        self.last_contacted = time.time()
-
-    def start_non_blocking(self):
-        start_thread = Thread(target=self.start)
-        start_thread.start()
+    """
+    General Control Functions
+    """
 
     def start(self):
+        """ Startes the StarNode and kicks off all lifecycle functions"""
         self.socket_manager.start()
-        self.log.debug("Socket Started Successfully")
+        self._log.debug("Socket Started Successfully")
 
-        self.try_to_contact_poc()
-        # self.start_heartbeat()
-        # self.start_rtt_calculations()
-        self.check_for_new_messages()
-        # self.check_for_user_input()
+        if self.poc != None:
+            self.send_discovery_message(self.poc)
+        self._start_daemon_thread(self.watch_for_discovery_messages)
 
         while True:  # Blocking. Nothing can go below this
             self.check_for_inactivity()
 
-    def check_for_new_messages(self):
-        discovery_thread = Thread(target=self.watch_for_discovery_messages)
-        discovery_thread.start()
+    def start_non_blocking(self):
+        """ Allows StarNode to be started without blocking """
+        self._start_daemon_thread(self.start)
 
-    def watch_for_discovery_messages(self):
-        print(">>>>>>>>>>>")
-        while True:
-            message = self.socket_manager.get_discovery_message()
-            if message.direction == "0":
-                print("========")
-                self.handle_discovery_message(message)
-                self.log.debug(
-                    f'Handled Discovery Message from {message.origin_address}')
-            else:
-                self.socket_manager.return_discovery_message(message)
+    def broadcast(self, data, dests):
+        """
+        Sends a message to all nodes in the network via the Central Node
+        """
+        pass
 
-    # def check_for_user_input(self):
-    #     pass
+    def report(self):
+        """ Updates the time a packet was last received """
+        self.last_contacted = time.time()
 
     def check_for_inactivity(self):
         """ 
@@ -94,102 +83,108 @@ class StarNode():
             import sys
             sys.exit("StarNode terminated due to inactivity with other nodes")
 
-    def ensure_sender_is_known(self, message):
-        # TODO: Messages should include sender's name
-        # TODO: Check if message's sender is in self.dictionary or send discovery request
-        pass
+    """
+    Peer Discovery Functions
 
-    def handle_discovery_message(self, message):
-        # TODO Should make sure if message origin is not already in this node's Dict
-        # then we should send a Discovery message to the origin node.
+    Handle contacting POC Node, responding to new Discovery Requests, and
+    ensuring all incoming requests are from known ContactNodes.
+    """
+
+    def watch_for_discovery_messages(self):
+        """ Waits and handles all discovery messages that arrive to this node. """
+        while True:
+            message = self.socket_manager.get_discovery_message()
+            if message.direction == "0":
+                self.respond_to_discovery_message(message)
+                self._log.debug(
+                    f'Handled Discovery Message from {message.origin_node.name}')
+            elif message.direction == "1":
+                directory = message.get_payload()
+                self._merge_into_directory(directory)
+                self._log.debug(f'Directory updated (n={len(self.directory)})')
+
+    def respond_to_discovery_message(self, message):
+        """ Responds to Discovery Message by sending node's directory """
         resp_msg = MessageFactory.generate_discovery_message(
-            origin=self.address,
-            destination=message.origin_address,
+            origin_node=self.socket_manager.node,
+            destination_node=message.origin_node,
             direction="1",
             payload=self._serialize_directory())
         self.socket_manager.send_message(resp_msg)
         self.ensure_sender_is_known(message)
 
-    # def send_heartbeat(self):
-    #     while True:
-    #         self.log.debug("Sending Heartbeat")
+    def send_discovery_message(self, destination):
+        """ Sends a Discovery Request Message to the destination"""
+        discovery_message = MessageFactory.generate_discovery_message(
+            origin_node=self.socket_manager.node,
+            destination_node=destination,
+            direction='0'
+        )
+        self.socket_manager.send_message(discovery_message)
 
-    #         time.sleep(self.HEARTBEAT_TIMEOUT)
+    def ensure_sender_is_known(self, message):
+        """ Send a Discovery message if sender of `message` is unknown """
+        if self.directory.get(message.origin_node.get_name(), False):
+            self.send_discovery_message(message.origin_node)
 
-    # def start_heartbeat(self):
-    #     heartbeat_thread = Thread(target=self.send_heartbeat, daemon=True)
-    #     heartbeat_thread.start()
+    """ 
+    Heartbeat Functions
 
-    # def send_rtt(self):
-    #     while True:
-    #         self.log.debug("Sending RTT")
-    #         time.sleep(self.RTT_TIMEOUT)
+    Send a Heartbeat Message to all other ContactNodes to ensure they are still
+    online and functioning. If a node goes offline or a new node comes online
+    the RTT task should be kicked off to decide on a new Central Node
+    """
 
-    # def start_rtt_calculations(self):
-    #     rtt_thread = Thread(target=self.send_rtt, daemon=True)
-    #     rtt_thread.start()
+    def watch_for_heartbeat_messages(self):
+        """ Waits and handles all heartbeat messages that arrive to this node. """
+        pass
 
-    def set_poc(self, name, ip, port):
-        poc = None
-        if name != None:
-            poc = ContactNode(name, ip, port)
-            # self.directory[name] = poc
-        return poc
+    def respond_to_heartbeat_message(self):
+        """ Respond to a Heartbeat Message """
+        pass
+
+    def send_heartbeat_messages(self):
+        """ Sends a Heartbeat Message to all ContactNodes """
+        pass
+
+    """ 
+    Round Trip Time (RTT) Functions
+
+    Handles calculating the RTT to all ContactNodes and broadcasting the sum to
+    all ContactNodes in the directory. The ContactNode with the shortest RTT
+    will be used to broadcast application messages.
+    """
+
+    def watch_for_rtt_messages(self):
+        """ Waits and handles all RTT messages that arrive to this node. """
+        pass
+
+    def respond_to_rtt_message(self):
+        """ Respond to a RTT Message """
+        pass
+
+    def send_rtt_messages(self):
+        """ Sends a RTT Message to all ContactNodes """
+        pass
+
+    """ 
+    Util Functions
+    """
+
+    def _start_daemon_thread(self, fn):
+        """ Allows any function to be started in a Daemon Thread """
+        daemon = Thread(target=fn, daemon=True)
+        daemon.start()
 
     def _serialize_directory(self):
+        """ Serializes the ContactNode Directory to JSON """
         directory = []
-
         for key in self.directory:
             directory.append(self.directory[key].to_json())
         return json.dumps(directory)
 
-    def _deserialize_into_directory(self, serialized):
-        deserialized = json.loads(serialized)
-        directory = {}
-        for node_json in deserialized:
-            node = ContactNode.create_from_json(node_json)
-            directory[node.name] = node
-        return directory
-
-    def _merge_into_directory(self, json_dict):
-        for key in json_dict:
-            self.directory[key] = json_dict[key]
-        self.log.debug(
-            f'Added {len(json_dict)} entries to Directory (new size={len(self.directory)})')
-
-    def broadcast(self, data, dests):
-        pass
-
-    def try_to_contact_poc(self):
-        # TODO If successfully reaches POC add to Directory
-        if self.poc != None:
-            poc_thread = Thread(target=self.contact_poc, daemon=True)
-            poc_thread.start()
-            self.log.debug("Started Thread to contact POC")
-
-    def contact_poc(self):
-        # Generate and send Discovery Message
-        discovery_message = MessageFactory.generate_discovery_message(
-            origin=self.address,
-            destination=(self.poc.ip, self.poc.port)
-        )
-        self.socket_manager.send_message(discovery_message)
-        self.log.debug("Attempted to contact POC Node")
-        # Wait for response
-        while self.directory.get(self.poc.name, None) == None:
-            discovery_resp = self.socket_manager.get_discovery_message()
-            # print(discovery_resp.direction)
-            # print(discovery_resp.payload)
-            # print(discovery_resp.origin_address)
-            # print(discovery_resp.destination_address)
-
-            # import pdb
-            # pdb.set_trace()
-            if discovery_resp.is_response_to(discovery_message):
-                print("!>!@>#!@#!@$!@#$")
-                directory = self._deserialize_into_directory(
-                    discovery_resp.payload)
-                self._merge_into_directory(directory)
-            else:
-                self.socket_manager.return_discovery_message(discovery_resp)
-        self.log.debug("Response from POC successfully recieved.")
+    def _merge_into_directory(self, serialized_directory):
+        """ Adds an array of serialized ContactNodes to the Directory """
+        for item in serialized_directory:
+            node = ContactNode.create_from_json(item)
+            self.directory[node.name] = node
