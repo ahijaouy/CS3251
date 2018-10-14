@@ -14,6 +14,14 @@ node_2 = StarNode(name="Node2", port=3001, num_nodes=2,
 
 node_2.start_non_blocking()
 
+time.sleep(3.5)
+print("check directories")
+print("Node1: ", len(node_1.directory))
+for node in node_1.directory:
+    print(node)
+print("Node2: ", len(node_2.directory))
+for node in node_2.directory:
+    print(node)
 
 # def listen(sock):
 

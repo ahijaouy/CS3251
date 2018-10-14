@@ -32,14 +32,13 @@ class StarNode():
         self.central_node = None
         self.directory = {}
         if poc_ip != None and poc_port != None:
-            self.poc = ContactNode("poc", ip, port)
+            self.poc = ContactNode("poc", poc_ip, poc_port)
         else:
             self.poc = None
 
         # Initialize things related to the socket
         self.socket_manager = SocketManager(
             name, port, host, self.report, verbose)
-        self.address = self.socket_manager.get_address()
         self.directory[name] = self.socket_manager.node
 
     """
@@ -53,14 +52,14 @@ class StarNode():
 
         if self.poc != None:
             self.send_discovery_message(self.poc)
-        self._start_daemon_thread(self.watch_for_discovery_messages)
+        self._start_thread(self.watch_for_discovery_messages, daemon=True)
 
         while True:  # Blocking. Nothing can go below this
             self.check_for_inactivity()
 
     def start_non_blocking(self):
         """ Allows StarNode to be started without blocking """
-        self._start_daemon_thread(self.start)
+        self._start_thread(self.start)
 
     def broadcast(self, data, dests):
         """
@@ -124,7 +123,7 @@ class StarNode():
 
     def ensure_sender_is_known(self, message):
         """ Send a Discovery message if sender of `message` is unknown """
-        if self.directory.get(message.origin_node.get_name(), False):
+        if not self.directory.get(message.origin_node.get_name()):
             self.send_discovery_message(message.origin_node)
 
     """ 
@@ -171,9 +170,9 @@ class StarNode():
     Util Functions
     """
 
-    def _start_daemon_thread(self, fn):
+    def _start_thread(self, fn, daemon=False):
         """ Allows any function to be started in a Daemon Thread """
-        daemon = Thread(target=fn, daemon=True)
+        daemon = Thread(target=fn, daemon=daemon)
         daemon.start()
 
     def _serialize_directory(self):

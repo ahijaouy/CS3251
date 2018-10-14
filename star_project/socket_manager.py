@@ -41,6 +41,7 @@ class SocketManager():
         listening_thread.start()
         sending_thread = Thread(target=self.sock.start_sending, daemon=True)
         sending_thread.start()
+        print("DONE")
         self._log.debug("Socket Online...")
         self.report()
 
