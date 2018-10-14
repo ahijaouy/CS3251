@@ -104,5 +104,6 @@ venv.bak/
 .mypy_cache/
 
 homework1/*
+homework2/*
 lectures/*
 .DS_Store
