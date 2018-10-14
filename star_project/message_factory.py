@@ -38,10 +38,13 @@ class MessageFactory():
         return message_type.from_packet_string(packet_string=packet_data, **kwargs)
 
     @classmethod
-    def generate_ack_message(cls, packet_data, address):
-        ack = AckMessage.from_packet_string(
-            cls.get_new_id(), address, packet_data)
-        return ack
+    def generate_ack_message(cls, message):
+        return AckMessage(
+            uuid=cls.get_new_id(),
+            origin_node=message.destination_node,
+            destination_node=message.origin_node,
+            ack_id=message.get_message_id()
+        )
 
     @classmethod
     def generate_discovery_message(cls, **kwargs):

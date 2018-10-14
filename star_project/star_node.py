@@ -25,7 +25,7 @@ class StarNode():
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
 
-    def __init__(self, name, port, num_nodes, host=None, poc_ip=None, poc_port=None, verbose=False):
+    def __init__(self, name, port, num_nodes, poc_ip=None, poc_port=None, verbose=False):
         # Initialize instance variables
         self._log = Logger(name, verbose=True)
         self.num_nodes = num_nodes
@@ -38,7 +38,7 @@ class StarNode():
 
         # Initialize things related to the socket
         self.socket_manager = SocketManager(
-            name, port, host, self.report, verbose)
+            name, port, self.report, verbose)
         self.directory[name] = self.socket_manager.node
 
     """

@@ -2,14 +2,19 @@
 """
 Socket Manager
 
-Provides an interface for Star Node to manage the socket.
-Messages can be queued up to be sent.
-Also provides functions that block and return messages when they arrive
-Ex: SocketManager.get_rtt_message() will block until an RTT message is recieved
+Provides an interface for Star Node to send/recieve messages and implements 
+reliable message transmission
+
+Parameters:
+    - name: Name of the StarNode this socket is attached to
+    - port: Port number to listen on
+    - report_func: function to be called whenever a packet is received
+    - verbose: Indicates whether output should be printed with the logger
 """
 
 from queue import Queue
 from threading import Thread
+import time
 
 from reliable_socket import ReliableSocket
 from contact_node import ContactNode
@@ -18,12 +23,15 @@ from logger import Logger
 
 
 class SocketManager():
-    def __init__(self, name, port, host, report_func, verbose=False):
+    ACK_TIMEOUT = 5  # seconds
+
+    def __init__(self, name, port, report_func, verbose=False):
         self._log = Logger(name, verbose)
         self.report = report_func
         self.outbox = Queue()
+        self.awaiting_ack = Queue()
         self.sock = ReliableSocket(
-            port, self._process_incoming_packet, self.outbox, host, name, verbose)
+            port, self.process_incoming_packet, self.outbox, name, verbose=False)
 
         self.node = ContactNode(name, self.sock.get_ip(), port)
         self.messages = {
@@ -41,20 +49,64 @@ class SocketManager():
         listening_thread.start()
         sending_thread = Thread(target=self.sock.start_sending, daemon=True)
         sending_thread.start()
-        print("DONE")
+
+        ack_watch_thread = Thread(target=self.watch_for_acks, daemon=True)
+        ack_watch_thread.start()
+
+        ack_timeout_thread = Thread(
+            target=self.watch_for_ack_timeout, daemon=True)
+        ack_timeout_thread.start()
+
         self._log.debug("Socket Online...")
         self.report()
 
     def send_message(self, message):
         """ Queues up a message to be sent out """
         self.outbox.put(message)
+        if message.TYPE_STRING != "ack":
+            self.awaiting_ack.put((message, time.time()))
         self._log.debug(
-            f'Message added to outbox. Outbox size: {self.outbox.qsize()} ')
+            f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
 
-    def _process_incoming_packet(self, data, address):
+    def watch_for_acks(self):
+        """ Wait for incoming ACKs and start a therad to process them """
+        while True:
+            ack_message = self.messages['ack'].get()
+            self._log.debug("ACK Received")
+            process_ack_thread = Thread(
+                target=self.process_ack, args=(ack_message,), daemon=True)
+            process_ack_thread.start()
+
+    def process_ack(self, ack_message):
+        """ Find the message being ACK'd and mark it received by sender """
+        processing = True
+        while processing:
+            sent_message, time_sent = self.awaiting_ack.get()
+            if sent_message.get_message_id() == ack_message.ack_id:
+                processing = False
+                self._log.debug("ACK Processed")
+            else:
+                self.awaiting_ack.put((sent_message, time_sent))
+
+    def watch_for_ack_timeout(self):
+        """ 
+        Cycles through all messages in the awaiting ack queue and if
+        any message is still in the queue after ACK_TIMEOUT seconds, resend it
+        """
+        while True:
+            sent_message, time_sent = self.awaiting_ack.get()
+            timeout_time = time.time() + self.ACK_TIMEOUT
+            if time_sent + self.ACK_TIMEOUT < time.time():
+                self.send_message(sent_message)
+            else:
+                self.awaiting_ack.put((sent_message, time_sent))
+
+            time.sleep(.3)  # Ensure this thread doesn't hog the queue
+
+    def process_incoming_packet(self, data, address):
         """
         Takes an incomming packet and uses the Type field of the packet
-        to put it in the proper message queue.
+        to put it in the proper message queue. Responds to sender w/ ACK packet
         """
         new_message = MessageFactory.create_message(
             packet_data=data,
@@ -62,6 +114,10 @@ class SocketManager():
             destination_node=self.node)
         self._put_new_message_in_queue(new_message)
         self.report()
+        if new_message.TYPE_STRING != "ack":
+            ack_message = MessageFactory.generate_ack_message(new_message)
+            self._log.debug("Sending ACK")
+            self.send_message(ack_message)
 
     def _put_new_message_in_queue(self, message):
         """
@@ -87,7 +143,3 @@ class SocketManager():
     def get_app_message(self):
         """ Blocks and returns an application message when avaiable """
         return self.messages["app"].get()
-
-    def get_ack_message(self):
-        """ Blocks and returns an ACK message when avaiable """
-        return self.messages["ack"].get()

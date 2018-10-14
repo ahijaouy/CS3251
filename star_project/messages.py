@@ -60,6 +60,10 @@ class BaseMessage():
             return json.loads(self.payload)
         return None
 
+    def get_message_id(self):
+        """ Get the combination of the origin name and uuid """
+        return self.origin_node.get_16_byte_name() + self.uuid
+
     @classmethod
     def from_packet_string(cls, origin_address, destination_node, packet_string):
         """ Create a Message Instance from information received in a packet """
@@ -77,8 +81,8 @@ class BaseMessage():
 
     def to_packet_string(self):
         """ Convert Message object to string to be sent in packet"""
-        packet_string = self.TYPE_CODE + self.origin_node.get_16_byte_name()
-        packet_string += self.uuid + self.serialize_payload_for_packet()
+        packet_string = self.TYPE_CODE + \
+            self.get_message_id() + self.serialize_payload_for_packet()
         return packet_string
     """ 
     Util Functions 
@@ -188,15 +192,13 @@ class AckMessage(BaseMessage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO Add Message specific implementation
+        self.ack_id = kwargs.get('ack_id')
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
-        # TODO: return {}
-        pass
+        return {"ack_id": packet_payload}
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        # TODO: return self.payload
-        pass
+        return self.ack_id

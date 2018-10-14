@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """
-Socket Manager
+Simple Socket -- Custom API to send and receive UDP Packets.
+
+
+Parameters:
+    - port: Port number to listen on
+    - process_incoming_packet_func: function to be called whenever a packet is received
+    - outbox: Queue that contains messages to be sent out
+    - name: Name of the StarNode this socket is attached to
+    - verbose: Indicates whether output should be printed with the logger
 """
 
 import socket
-import time
-import queue
-from messages import AckMessage
-from message_factory import MessageFactory
 from logger import Logger
 
 
 class ReliableSocket():
-    ACK_TIMEOUT = 5  # seconds
 
-    def __init__(self, port, process_incoming_packet_func, outbox, host=None, name="Reliable Socket", verbose=False):
+    def __init__(self, port, process_incoming_packet_func, outbox, name, verbose=False):
         # Verify Parameters are correct
         self._verify_int(port)
         self._verify_func(process_incoming_packet_func)
@@ -23,7 +26,6 @@ class ReliableSocket():
         self.process_incoming_packet = process_incoming_packet_func
         self._log = Logger(name, verbose)
         self.outbox = outbox
-        self.acks = queue.Queue()
 
         # Setup Socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -73,28 +75,6 @@ class ReliableSocket():
             return message.uuid
         except Exception as e:
             self._log.error("in ReliableSocket while sending message", e)
-
-    def send_ack(self, ack_id):
-        # TODO
-        pass
-        # ack = AckMessage
-
-    def send_reliably(self, message):
-        # TODO: Should retry if ack is not recieved
-        sent_id = self.send(message)
-        timeout_time = time.time() + self.ACK_TIMEOUT
-
-        while timeout_time > time.time():
-            try:
-                ack = self.acks.get(
-                    timeout=timeout_time - time.time())
-                if ack.sent_id == sent_id:
-                    return True
-                else:
-                    self.acks.put(ack)
-            except Exception as e:
-                pass
-        return False
 
     """ 
     Util Functions
