@@ -35,7 +35,8 @@ class MessageFactory():
     @classmethod
     def create_message(cls, packet_data, **kwargs):
         message_type = cls._get_message_type(packet_data)
-        return message_type.from_packet_string(packet_string=packet_data, **kwargs)
+        return message_type.from_packet_string(
+            packet_string=packet_data, **kwargs)
 
     @classmethod
     def generate_ack_message(cls, message):
@@ -53,3 +54,7 @@ class MessageFactory():
     @classmethod
     def generate_heartbeat_message(cls, **kwargs):
         return HeartbeatMessage(uuid=cls.get_new_id(), **kwargs)
+
+    @classmethod
+    def generate_rtt_message(cls, **kwargs):
+        return RTTMessage(uuid=cls.get_new_id(), **kwargs)

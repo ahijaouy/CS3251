@@ -148,23 +148,34 @@ class HeartbeatMessage(BaseMessage):
 
 
 class RTTMessage(BaseMessage):
+    """
+    Stage 0: RTT Initial Request
+    Stage 1: RTT Response
+    Stage 2: Broadcast RTT Time
+    """
     TYPE_STRING = "rtt"
     TYPE_CODE = "R"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO Add Message specific implementation
+        self.stage = kwargs.get("stage", '0')
+        self.rtt_sum = kwargs.get("rtt_sum", "")
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
-        # TODO: return {}
-        pass
+        return {
+            'stage': packet_payload[0],
+            'rtt_sum': packet_payload[1:]
+        }
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        # TODO: return self.payload
-        pass
+        return self.stage + str(self.rtt_sum)
+
+    def get_rtt_sum(self):
+        if self.stage == '2':
+            return float(self.rtt_sum)
 
 
 class AppMessage(BaseMessage):

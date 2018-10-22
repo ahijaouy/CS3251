@@ -11,6 +11,7 @@ import argparse
 import socket
 import time
 import json
+import queue
 from threading import Thread
 
 from contact_directory import ContactDirectory
@@ -25,12 +26,15 @@ class StarNode():
     HEARTBEAT_TIMEOUT = 5  # seconds
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
+    INITIAL_RTT_DEFAULT = 10
 
     def __init__(self, name, port, num_nodes, poc_ip=None, poc_port=None, verbose=False):
         # Initialize instance variables
         self._log = Logger(name, verbose=True)
         self.num_nodes = num_nodes
         self.central_node = None
+        self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
+        self.rtt_queue = queue.Queue()
         self.directory = ContactDirectory()
         if poc_ip != None and poc_port != None:
             self.poc = ContactNode("poc", poc_ip, poc_port)
@@ -54,9 +58,11 @@ class StarNode():
         if self.poc != None:
             self.send_discovery_message(self.poc)
         self._start_thread(self.watch_for_discovery_messages, daemon=True)
-        self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
-        self._start_thread(self.send_heartbeat_messages, daemon=True)
-        self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
+        # self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
+        # self._start_thread(self.send_heartbeat_messages, daemon=True)
+        # self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
+        self._start_thread(self.watch_for_rtt_messages, daemon=True)
+        # self._start_thread(self.calculate_rtt, daemon=True)
 
         while True:  # Blocking. Nothing can go below this
             self.check_for_inactivity()
@@ -104,6 +110,7 @@ class StarNode():
             elif message.direction == "1":
                 serialized_directory = message.get_payload()
                 self.directory.merge_serialized_directory(serialized_directory)
+                self._start_thread(self.calculate_rtt, daemon=True)
                 self._log.debug(
                     f'Directory updated (n={self.directory.size()})')
 
@@ -195,16 +202,90 @@ class StarNode():
 
     def watch_for_rtt_messages(self):
         """ Waits and handles all RTT messages that arrive to this node. """
-        pass
+        while True:
+            message = self.socket_manager.get_rtt_message()
+            self.ensure_sender_is_known(message)
+            if message.stage == "0":
+                self.respond_to_rtt_message(message)
+                self._log.debug(
+                    f'Responded to RTT Message from {message.origin_node.name}')
+            elif message.stage == "1":
+                self.handle_rtt_response(message)
+                self._log.debug(
+                    f'Recieved RTT Response from {message.origin_node.name}')
+            elif message.stage == "2":
+                self.handle_rtt_broadcast(message)
+                self._log.debug(
+                    f'Recieved RTT Broadcast from {message.origin_node.name}')
 
-    def respond_to_rtt_message(self):
+    def respond_to_rtt_message(self, message):
         """ Respond to a RTT Message """
-        pass
+        rtt_message = MessageFactory.generate_rtt_message(
+            origin_node=self.socket_manager.node,
+            destination_node=message.origin_node,
+            stage="1"
+        )
+        self.socket_manager.send_message(rtt_message)
 
-    def send_rtt_messages(self):
+    def handle_rtt_response(self, message):
+        self.rtt_queue.put((message.origin_node.get_name(), time.time()))
+
+    def handle_rtt_broadcast(self, message):
+
+        new_rtt_sum = message.get_rtt_sum()
+        self._log.debug(f'Inside RTT BROADCAST HANDLER:  {new_rtt_sum}')
+
+        if ((new_rtt_sum < (.99 * self.shortest_rtt)) or (self.shortest_rtt == self.INITIAL_RTT_DEFAULT)):
+            self._log.debug(
+                f'____________________________Central Node Updated to: {message.origin_node.get_name()}')
+            self.central_node = message.origin_node
+            self.shortest_rtt = new_rtt_sum
+
+    def process_rtt_times(self, sent_times, response_times):
+        rtt_sum = 0.0
+        for name, sent_at in sent_times.items():
+            recieved_at = response_times[name]
+            rtt_sum += recieved_at - sent_at
+        self._log.debug(f'**************************     RTT SUM: {rtt_sum}')
+
+        if rtt_sum < self.shortest_rtt:
+            self.shortest_rtt = rtt_sum
+            self.central_node = None
+            self._log.debug(
+                f'____________________________Central Node Updated to: SELF')
+
+        for node in self.directory.get_current_list():
+            if node.get_name() != self.directory.star_node.get_name():
+                rtt_message = MessageFactory.generate_rtt_message(
+                    origin_node=self.socket_manager.node,
+                    destination_node=node,
+                    stage="2",
+                    rtt_sum=rtt_sum
+                )
+                self.socket_manager.send_message(rtt_message)
+        self._log.debug(f'Sending RTT Broadcast to all')
+
+    def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
-        pass
+        print("~~~~~~~~~~~~~~~~~~ RTT CALCULATIONS ~~~~~~~~~~~~")
+        rtt_sent_times = {}
+        rtt_response_times = {}
+        for node in self.directory.get_current_list():
+            self._log.debug(f'>>>> RTT About to contact {node.get_name()}')
+            if node.get_name() != self.directory.star_node.get_name():
+                rtt_message = MessageFactory.generate_rtt_message(
+                    origin_node=self.socket_manager.node,
+                    destination_node=node
+                )
+                self._log.debug(f'Sending RTT message to {node.name}')
+                self.socket_manager.send_message(rtt_message)
+                rtt_sent_times[node.get_name()] = time.time()
 
+        while len(rtt_response_times) < len(rtt_sent_times):
+            name, time_recieved = self.rtt_queue.get()
+            rtt_response_times[name] = time_recieved
+
+        self.process_rtt_times(rtt_sent_times, rtt_response_times)
     """ 
     Util Functions
     """
