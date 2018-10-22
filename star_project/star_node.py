@@ -122,6 +122,7 @@ class StarNode():
             direction="1",
             payload=self.directory.serialize())
         self.socket_manager.send_message(resp_msg)
+        self.send_current_central_node(message)
         self.ensure_sender_is_known(message)
 
     def send_discovery_message(self, destination):
@@ -200,6 +201,19 @@ class StarNode():
     will be used to broadcast application messages.
     """
 
+    def send_current_central_node(self, message):
+        if self.central_node != None:
+
+            rtt_message = MessageFactory.generate_rtt_message(
+                origin_node=self.socket_manager.node,
+                destination_node=message.origin_node,
+                stage="3",
+                rtt_sum=self.shortest_rtt,
+                central_node=self.central_node
+            )
+            print(" $$$$$$$$$$$$$$$$$$$$$$ About to send", rtt_message)
+            self.socket_manager.send_message(rtt_message)
+
     def watch_for_rtt_messages(self):
         """ Waits and handles all RTT messages that arrive to this node. """
         while True:
@@ -217,6 +231,14 @@ class StarNode():
                 self.handle_rtt_broadcast(message)
                 self._log.debug(
                     f'Recieved RTT Broadcast from {message.origin_node.name}')
+            elif message.stage == "3":
+                if self.shortest_rtt == self.INITIAL_RTT_DEFAULT:
+                    self.central_node = message.get_central_node()
+                    self.shortest_rtt = message.get_rtt_sum()
+                    self._log.debug(
+                        f'____________________________Central Node Updated to: {message.get_central_node()}')
+                self._log.debug(
+                    f'Recieved RTT Initial Settings Broadcast from {message.origin_node.name}')
 
     def respond_to_rtt_message(self, message):
         """ Respond to a RTT Message """
@@ -238,7 +260,7 @@ class StarNode():
         if ((new_rtt_sum < (.99 * self.shortest_rtt)) or (self.shortest_rtt == self.INITIAL_RTT_DEFAULT)):
             self._log.debug(
                 f'____________________________Central Node Updated to: {message.origin_node.get_name()}')
-            self.central_node = message.origin_node
+            self.central_node = message.origin_node.get_name()
             self.shortest_rtt = new_rtt_sum
 
     def process_rtt_times(self, sent_times, response_times):
@@ -248,9 +270,9 @@ class StarNode():
             rtt_sum += recieved_at - sent_at
         self._log.debug(f'**************************     RTT SUM: {rtt_sum}')
 
-        if rtt_sum < self.shortest_rtt:
+        if rtt_sum < (.99 * self.shortest_rtt):
             self.shortest_rtt = rtt_sum
-            self.central_node = None
+            self.central_node = self.socket_manager.node.get_name()
             self._log.debug(
                 f'____________________________Central Node Updated to: SELF')
 

@@ -6,7 +6,6 @@ Stores information about multiple Contact Nodes
 """
 
 import json
-import copy
 import threading
 from contact_node import ContactNode
 
@@ -46,7 +45,8 @@ class ContactDirectory():
 
     def get_current_list(self):
         with self.lock:
-            copy_dict = copy.deepcopy(self.directory)
+            copy_dict = {k: v for k, v in self.directory.items()
+                         if v.is_online}
             return copy_dict.values()
 
     def serialize(self):
