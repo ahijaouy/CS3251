@@ -5,6 +5,7 @@ Messages
 Contains classes for all different types of messages used in the StarNet.
 """
 import json
+import random
 from contact_node import ContactNode
 
 
@@ -20,7 +21,7 @@ class BaseMessage():
     to get the corrosponding python dict
 
     Inheritance:
-    - Implement classmethod parse_payload_to_kwargs to specify how the packet 
+    - Implement classmethod parse_payload_to_kwargs to specify how the packet
     payload should be parsed and stored in the message object
     - Overide self.serialize_payload_for_packet() to specify how self.payload
     should be serialized before sending
@@ -84,8 +85,8 @@ class BaseMessage():
         packet_string = self.TYPE_CODE + \
             self.get_message_id() + self.serialize_payload_for_packet()
         return packet_string
-    """ 
-    Util Functions 
+    """
+    Util Functions
     """
 
     def _ensure_json_string(self, json_string):
@@ -132,18 +133,18 @@ class HeartbeatMessage(BaseMessage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO Add Message specific implementation
+        self.direction = kwargs.get("direction", '0')
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
-        # TODO: return {}
-        pass
+        return {
+            'direction': packet_payload[0],
+        }
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        # TODO: return self.payload
-        pass
+        return self.direction
 
 
 class RTTMessage(BaseMessage):

@@ -13,6 +13,7 @@ import time
 import json
 from threading import Thread
 
+from contact_directory import ContactDirectory
 from contact_node import ContactNode
 from socket_manager import SocketManager
 from message_factory import MessageFactory
@@ -30,7 +31,7 @@ class StarNode():
         self._log = Logger(name, verbose=True)
         self.num_nodes = num_nodes
         self.central_node = None
-        self.directory = {}
+        self.directory = ContactDirectory()
         if poc_ip != None and poc_port != None:
             self.poc = ContactNode("poc", poc_ip, poc_port)
         else:
@@ -39,7 +40,7 @@ class StarNode():
         # Initialize things related to the socket
         self.socket_manager = SocketManager(
             name, port, self.report, verbose)
-        self.directory[name] = self.socket_manager.node
+        self.directory.set_star_node(self.socket_manager.node)
 
     """
     General Control Functions
@@ -53,6 +54,9 @@ class StarNode():
         if self.poc != None:
             self.send_discovery_message(self.poc)
         self._start_thread(self.watch_for_discovery_messages, daemon=True)
+        self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
+        self._start_thread(self.send_heartbeat_messages, daemon=True)
+        self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
 
         while True:  # Blocking. Nothing can go below this
             self.check_for_inactivity()
@@ -98,9 +102,10 @@ class StarNode():
                 self._log.debug(
                     f'Handled Discovery Message from {message.origin_node.name}')
             elif message.direction == "1":
-                directory = message.get_payload()
-                self._merge_into_directory(directory)
-                self._log.debug(f'Directory updated (n={len(self.directory)})')
+                serialized_directory = message.get_payload()
+                self.directory.merge_serialized_directory(serialized_directory)
+                self._log.debug(
+                    f'Directory updated (n={self.directory.size()})')
 
     def respond_to_discovery_message(self, message):
         """ Responds to Discovery Message by sending node's directory """
@@ -108,7 +113,7 @@ class StarNode():
             origin_node=self.socket_manager.node,
             destination_node=message.origin_node,
             direction="1",
-            payload=self._serialize_directory())
+            payload=self.directory.serialize())
         self.socket_manager.send_message(resp_msg)
         self.ensure_sender_is_known(message)
 
@@ -123,7 +128,7 @@ class StarNode():
 
     def ensure_sender_is_known(self, message):
         """ Send a Discovery message if sender of `message` is unknown """
-        if not self.directory.get(message.origin_node.get_name()):
+        if not self.directory.exists(message.origin_node.get_name()):
             self.send_discovery_message(message.origin_node)
 
     """ 
@@ -134,17 +139,51 @@ class StarNode():
     the RTT task should be kicked off to decide on a new Central Node
     """
 
+    def watch_for_heartbeat_timeouts(self):
+        while True:
+            for node in self.directory.get_current_list():
+                if node.is_unresponsive():
+                    self.directory.remove(node.name)
+
     def watch_for_heartbeat_messages(self):
         """ Waits and handles all heartbeat messages that arrive to this node. """
-        pass
+        while True:
+            message = self.socket_manager.get_heartbeat_message()
+            self.ensure_sender_is_known(message)
+            if message.direction == "0":
+                self.respond_to_heartbeat_message(message)
+                self._log.debug(
+                    f'Responded to Heartbeat Message from {message.origin_node.name}')
+            elif message.direction == "1":
+                self.handle_heartbeat_response(message)
+                self._log.debug(
+                    f'Recieved Heartbeat Response from {message.origin_node.name}')
 
-    def respond_to_heartbeat_message(self):
+    def handle_heartbeat_response(self, message):
+        """ Handle a response Heartbeat message """
+        self.directory.get(message.origin_node.get_name()).heartbeat()
+
+    def respond_to_heartbeat_message(self, message):
         """ Respond to a Heartbeat Message """
-        pass
+        heartbeat_message = MessageFactory.generate_heartbeat_message(
+            origin_node=self.socket_manager.node,
+            destination_node=message.origin_node,
+            direction="1"
+        )
+        self.socket_manager.send_message(heartbeat_message)
 
     def send_heartbeat_messages(self):
         """ Sends a Heartbeat Message to all ContactNodes """
-        pass
+        while True:
+            for node in self.directory.get_current_list():
+                if node.get_name() != self.directory.star_node.get_name():
+                    heartbeat_message = MessageFactory.generate_heartbeat_message(
+                        origin_node=self.socket_manager.node,
+                        destination_node=node
+                    )
+                    self._log.debug(f'Sending heartbeat to {node.name}')
+                    self.socket_manager.send_message(heartbeat_message)
+            time.sleep(3)
 
     """ 
     Round Trip Time (RTT) Functions
@@ -174,16 +213,3 @@ class StarNode():
         """ Allows any function to be started in a Daemon Thread """
         daemon = Thread(target=fn, daemon=daemon)
         daemon.start()
-
-    def _serialize_directory(self):
-        """ Serializes the ContactNode Directory to JSON """
-        directory = []
-        for key in self.directory:
-            directory.append(self.directory[key].to_json())
-        return json.dumps(directory)
-
-    def _merge_into_directory(self, serialized_directory):
-        """ Adds an array of serialized ContactNodes to the Directory """
-        for item in serialized_directory:
-            node = ContactNode.create_from_json(item)
-            self.directory[node.name] = node

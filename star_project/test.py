@@ -3,17 +3,23 @@ import socket
 import time
 from threading import Thread
 
-node_1 = StarNode(name="Node1", port=3000, num_nodes=2, verbose=True)
+node_1 = StarNode(name="Node1", port=3000, num_nodes=3, verbose=True)
 
 node_1.start_non_blocking()
 
 host = socket.gethostbyname(socket.gethostname())
 # host = "127.0.0.1"
-node_2 = StarNode(name="Node2", port=3001, num_nodes=2,
+node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
                   poc_ip=host, poc_port=3000, verbose=True)
 
 node_2.start_non_blocking()
 
+time.sleep(6)
+print("~~~~~~~~~~~About to Add new node")
+node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
+                  poc_ip=host, poc_port=3000, verbose=True)
+
+node_3.start_non_blocking()
 # time.sleep(5)
 # print("check directories")
 # print("Node1: ", len(node_1.directory))

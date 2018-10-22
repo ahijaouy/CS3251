@@ -6,15 +6,19 @@ Stores information about a Contact Node in the StarNet.
 """
 
 import json
+import time
 
 
 class ContactNode():
+    HEARTBEAT_TIMEOUT = 8  # seconds
 
     def __init__(self, name, ip, port):
         self.name = name
         self.ip = ip
         self.port = port
         self.rtt = None
+        self.last_contact = time.time()
+        self.is_online = True
 
     @classmethod
     def create_from_json(cls, raw_json):
@@ -38,3 +42,9 @@ class ContactNode():
             "ip": self.ip,
             "port": self.port
         })
+
+    def is_unresponsive(self):
+        return self.last_contact + self.HEARTBEAT_TIMEOUT < time.time()
+
+    def heartbeat(self):
+        self.last_contact = time.time()

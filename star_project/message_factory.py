@@ -49,3 +49,7 @@ class MessageFactory():
     @classmethod
     def generate_discovery_message(cls, **kwargs):
         return DiscoveryMessage(uuid=cls.get_new_id(), **kwargs)
+
+    @classmethod
+    def generate_heartbeat_message(cls, **kwargs):
+        return HeartbeatMessage(uuid=cls.get_new_id(), **kwargs)

@@ -63,6 +63,12 @@ class SocketManager():
     def send_message(self, message):
         """ Queues up a message to be sent out """
         self.outbox.put(message)
+        self._log.debug(
+            f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
+
+    def send_message_reliably(self, message):
+        """ Queues up a message to be sent out """
+        self.outbox.put(message)
         if message.TYPE_STRING != "ack":
             self.awaiting_ack.put((message, time.time()))
         self._log.debug(
@@ -114,10 +120,10 @@ class SocketManager():
             destination_node=self.node)
         self._put_new_message_in_queue(new_message)
         self.report()
-        if new_message.TYPE_STRING != "ack":
-            ack_message = MessageFactory.generate_ack_message(new_message)
-            self._log.debug("Sending ACK")
-            self.send_message(ack_message)
+        # if new_message.TYPE_STRING != "ack":
+        #     ack_message = MessageFactory.generate_ack_message(new_message)
+        #     self._log.debug("Sending ACK")
+        #     self.send_message(ack_message)
 
     def _put_new_message_in_queue(self, message):
         """
