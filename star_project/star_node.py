@@ -71,11 +71,65 @@ class StarNode():
         """ Allows StarNode to be started without blocking """
         self._start_thread(self.start)
 
-    def broadcast(self, data, dests):
-        """
-        Sends a message to all nodes in the network via the Central Node
-        """
-        pass
+    """
+    Application Message Functions
+
+    Tony work here lol
+    """
+
+    # def watch_for_app_messages(self):
+    #     while True:
+    #         message = self.socket_manager.get_app_message()
+    #         if message.forward == "0":
+    #             self.handle_app_message(message)
+    #             self._log.debug(
+    #                 f'Handled App Message from {message.origin_node.name}')
+    #         elif message.forward == "1":
+    #             if self.central_node == self.socket_manager.node.get_name():
+    #                 self.broadcast_as_central_node(
+    #                     message.data, message.origin_node)
+    #             else:
+    #                 self.send_to_central_node(
+    #                     data, message.is_file, message.origin_node)
+
+    #             self._log.debug(
+    #                 f'Directory updated (n={self.directory.size()})')
+
+    # def handle_app_message(self, message):
+    #     pass
+    #     # if message.is_file == "1":
+
+    # def broadcast(self, data, is_file="0"):
+    #     """
+    #     Sends a message to all nodes in the network via the Central Node
+    #     """
+    #     if self.central_node == self.socket_manager.node.get_name():
+    #         self.broadcast_as_central_node(
+    #             data, self.socket_manager.node, is_file)
+    #     else:
+    #         self.send_to_central_node(data, is_file)
+
+    # def send_to_central_node(self, data, is_file, origin_node=self.socket_manager.node):
+    #     app_message = MessageFactory.generate_app_message(
+    #         origin_node=origin_node,
+    #         destination_node=self.directory.get(self.central_node),
+    #         forward="1",
+    #         is_file=is_file,
+    #         data=data
+    #     )
+    #     self.socket_manager.send_message(app_message)
+
+    # def broadcast_as_central_node(self, data, origin_node, is_file):
+    #     for node in self.directory.get_current_list():
+    #         if node.get_name() != self.directory.star_node.get_name():
+    #             app_message = MessageFactory.generate_app_message(
+    #                 origin_node=origin_node,
+    #                 destination_node=node,
+    #                 data=data,
+    #                 is_file=is_file
+    #             )
+    #             self._log.debug(f'Sending app message to {node.name}')
+    #             self.socket_manager.send_message(app_message)
 
     def report(self):
         """ Updates the time a packet was last received """
@@ -211,7 +265,6 @@ class StarNode():
                 rtt_sum=self.shortest_rtt,
                 central_node=self.central_node
             )
-            print(" $$$$$$$$$$$$$$$$$$$$$$ About to send", rtt_message)
             self.socket_manager.send_message(rtt_message)
 
     def watch_for_rtt_messages(self):
@@ -289,11 +342,9 @@ class StarNode():
 
     def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
-        print("~~~~~~~~~~~~~~~~~~ RTT CALCULATIONS ~~~~~~~~~~~~")
         rtt_sent_times = {}
         rtt_response_times = {}
         for node in self.directory.get_current_list():
-            self._log.debug(f'>>>> RTT About to contact {node.get_name()}')
             if node.get_name() != self.directory.star_node.get_name():
                 rtt_message = MessageFactory.generate_rtt_message(
                     origin_node=self.socket_manager.node,
@@ -316,3 +367,14 @@ class StarNode():
         """ Allows any function to be started in a Daemon Thread """
         daemon = Thread(target=fn, daemon=daemon)
         daemon.start()
+
+
+if __name__ == "__main__":
+    # TODO implement the CLI
+    pass
+
+    # star = StarNode()
+
+    # while True:
+    #     # get input form user
+    #     #execute command

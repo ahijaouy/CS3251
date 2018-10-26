@@ -58,3 +58,7 @@ class MessageFactory():
     @classmethod
     def generate_rtt_message(cls, **kwargs):
         return RTTMessage(uuid=cls.get_new_id(), **kwargs)
+
+    @classmethod
+    def generate_app_message(cls, **kwargs):
+        return AppMessage(uuid=cls.get_new_id(), **kwargs)

@@ -20,7 +20,7 @@ node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
                   poc_ip=host, poc_port=3000, verbose=True)
 
 node_3.start_non_blocking()
-# time.sleep(5)
+# # time.sleep(5)
 # print("check directories")
 # print("Node1: ", len(node_1.directory))
 # for node in node_1.directory:

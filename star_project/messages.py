@@ -199,18 +199,22 @@ class AppMessage(BaseMessage):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # TODO Add Message specific implementation
+        self.forward = kwargs.get('forward', '0')
+        self.is_file = kwargs.get('is_file', '0')
+        self.data = kwargs.get('data')
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
-        # TODO: return {}
-        pass
+        return {
+            'forward': packet_payload[0],
+            'is_file': packet_payload[1],
+            'data': packet_payload[2:]
+        }
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        # TODO: return self.payload
-        pass
+        return self.forward + self.is_file + self.data
 
 
 class AckMessage(BaseMessage):
