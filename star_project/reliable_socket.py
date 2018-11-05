@@ -38,10 +38,10 @@ class ReliableSocket():
             self._log.debug(f'Socket is listening...')
             while True:
 
-                data, address = self.sock.recvfrom(1024)
+                data, address = self.sock.recvfrom(64000)
                 self._log.debug(f'Socket received packet from: {address[0]}')
                 # self.send_ack(data, address)
-                self.process_incoming_packet(data.decode(), address)
+                self.process_incoming_packet(data, address)
 
         except Exception as e:
             self._log.error("in ReliableSocket while listening for packets", e)
@@ -69,7 +69,7 @@ class ReliableSocket():
         """ Send a Message as a UDP Packet """
         data, destination = message.prepare_packet()
         try:
-            self.sock.sendto(data.encode(), destination)
+            self.sock.sendto(data, destination)
             self._log.debug(
                 f'Message of type {message.TYPE_STRING} sent to {destination[0]}')
             return message.uuid

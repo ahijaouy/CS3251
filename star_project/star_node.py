@@ -33,7 +33,7 @@ class StarNode():
         # Initialize instance variables
         self._log = Logger(name, verbose=True)
         self.num_nodes = num_nodes
-        self.central_node = None
+        self.central_node = None  # Stores name of central node
         self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
         self.rtt_queue = queue.Queue()
         self.directory = ContactDirectory()
@@ -46,6 +46,7 @@ class StarNode():
         self.socket_manager = SocketManager(
             name, port, self.report, verbose)
         self.directory.set_star_node(self.socket_manager.node)
+        self.name = self.socket_manager.node.get_name()
 
     """
     General Control Functions
@@ -64,6 +65,7 @@ class StarNode():
         # self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
         self._start_thread(self.watch_for_rtt_messages, daemon=True)
         # self._start_thread(self.calculate_rtt, daemon=True)
+        self._start_thread(self.watch_for_app_messages, daemon=True)
 
         while True:  # Blocking. Nothing can go below this
             self.check_for_inactivity()
@@ -75,40 +77,87 @@ class StarNode():
     """
     Application Message Functions
 
-    Tony work here lol
     """
 
-    # def watch_for_app_messages(self):
-    #     while True:
-    #         message = self.socket_manager.get_app_message()
-    #         if message.forward == "0":
-    #             self.handle_app_message(message)
-    #             self._log.debug(
-    #                 f'Handled App Message from {message.origin_node.name}')
-    #         elif message.forward == "1":
-    #             if self.central_node == self.socket_manager.node.get_name():
-    #                 self.broadcast_as_central_node(
-    #                     message.data, message.origin_node)
-    #             else:
-    #                 self.send_to_central_node(
-    #                     data, message.is_file, message.origin_node)
+    def watch_for_app_messages(self):
+        while True:
+            message = self.socket_manager.get_app_message()
+            if message.forward == "0":
+                # Recieve message
+                if message.is_file == "1":
+                    self.handle_app_message_file(message)
+                else:
+                    self.handle_app_message(message)
 
-    #             self._log.debug(
-    #                 f'Directory updated (n={self.directory.size()})')
+            elif message.forward == "1":
+                # Broadcast message
+                if message.is_file == "1":
+                    self.handle_app_message_file(message)
+                else:
+                    self.handle_app_message(message)
+                self.broadcast_as_central_node(message)
+                # if self.central_node == self.socket_manager.node.get_name():
+                #     self.broadcast_as_central_node(
+                #         message.data, message.origin_node)
+                # else:
+                #     self.send_to_central_node(
+                #         data, message.is_file, message.origin_node)
 
-    # def handle_app_message(self, message):
-    #     pass
-    #     # if message.is_file == "1":
+    def handle_app_message(self, message):
+        """
+        Handles displaying the app message to the user
+        """
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        print(f'Message recieved from: {message.get_sender()}...')
+        print(message.data)
+        print(f'WHO AM I: {self.name}')
+        # self._log.debug(
+        #     f'Handled App Message from {message.get_sender()}')
+        # if message.is_file == "1":
 
-    # def broadcast(self, data, is_file="0"):
-    #     """
-    #     Sends a message to all nodes in the network via the Central Node
-    #     """
-    #     if self.central_node == self.socket_manager.node.get_name():
-    #         self.broadcast_as_central_node(
-    #             data, self.socket_manager.node, is_file)
-    #     else:
-    #         self.send_to_central_node(data, is_file)
+    def handle_app_message_file(self, message):
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        print(f'File recieved from: {message.get_sender()}...')
+
+        test_file_name = f'{self.name}-{message.file_name}'
+        with open(test_file_name, 'wb') as f:
+            # print(message.data)
+            f.write(message.data)
+        print(f'FILE {message.file_name} SAVED!')
+
+    def broadcast_string(self, data):
+        """
+        Sends a string message to all nodes in the network via the Central Node
+        """
+        app_message = MessageFactory.generate_app_message(
+            origin_node=self.socket_manager.node,
+            destination_node=self.directory.get(self.central_node),
+            forward='1',
+            is_file='0',
+            sender=self.socket_manager.node.get_16_byte_name(),
+            data=data,
+        )
+
+        if self._is_central_node():
+            self.broadcast_as_central_node(app_message)
+        else:
+            self.socket_manager.send_message(app_message)
+
+    def broadcast_file(self, file_name, data):
+        app_message = MessageFactory.generate_app_message(
+            origin_node=self.socket_manager.node,
+            destination_node=self.directory.get(self.central_node),
+            forward='1',
+            is_file='1',
+            sender=self.socket_manager.node.get_16_byte_name(),
+            file_name=file_name,
+            data=data,
+        )
+
+        if self._is_central_node():
+            self.broadcast_as_central_node(app_message)
+        else:
+            self.socket_manager.send_message(app_message)
 
     # def send_to_central_node(self, data, is_file, origin_node=self.socket_manager.node):
     #     app_message = MessageFactory.generate_app_message(
@@ -120,17 +169,20 @@ class StarNode():
     #     )
     #     self.socket_manager.send_message(app_message)
 
-    # def broadcast_as_central_node(self, data, origin_node, is_file):
-    #     for node in self.directory.get_current_list():
-    #         if node.get_name() != self.directory.star_node.get_name():
-    #             app_message = MessageFactory.generate_app_message(
-    #                 origin_node=origin_node,
-    #                 destination_node=node,
-    #                 data=data,
-    #                 is_file=is_file
-    #             )
-    #             self._log.debug(f'Sending app message to {node.name}')
-    #             self.socket_manager.send_message(app_message)
+    def broadcast_as_central_node(self, message):
+        for node in self.directory.get_current_list():
+            if self._is_not_self(node) and node.get_name() != message.origin_node.get_name():
+                app_message = MessageFactory.generate_app_message(
+                    origin_node=self.socket_manager.node,
+                    destination_node=node,
+                    forward='0',
+                    is_file=message.is_file,
+                    file_name=message.file_name,
+                    sender=message.sender,
+                    data=message.data,
+                )
+                self._log.debug(f'Sending app message to {node.name}')
+                self.socket_manager.send_message(app_message)
 
     def report(self):
         """ Updates the time a packet was last received """
@@ -147,6 +199,11 @@ class StarNode():
             import sys
             sys.exit("StarNode terminated due to inactivity with other nodes")
 
+    def _is_central_node(self):
+        return self.central_node == self.name
+
+    def _is_not_self(self, node):
+        return node.get_name() != self.name
     """
     Peer Discovery Functions
 

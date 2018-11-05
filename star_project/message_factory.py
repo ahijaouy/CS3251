@@ -29,7 +29,7 @@ class MessageFactory():
 
     @classmethod
     def _get_message_type(cls, raw_packet_data):
-        code_bit = raw_packet_data[:1]
+        code_bit = raw_packet_data[:1].decode()
         return cls.code_mapping[code_bit]
 
     @classmethod
