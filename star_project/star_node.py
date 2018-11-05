@@ -119,9 +119,9 @@ class StarNode():
         print(f'File recieved from: {message.get_sender()}...')
 
         test_file_name = f'{self.name}-{message.file_name}'
-        with open(test_file_name, 'w') as f:
+        with open(test_file_name, 'wb') as f:
+            # print(message.data)
             f.write(message.data)
-            f.close()
         print(f'FILE {message.file_name} SAVED!')
 
     def broadcast_string(self, data):

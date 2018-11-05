@@ -69,12 +69,12 @@ class BaseMessage():
     def from_packet_string(cls, origin_address, destination_node, packet_string):
         """ Create a Message Instance from information received in a packet """
 
-        name = packet_string[1:17]
+        name = packet_string[1:17].decode()
         origin_node = ContactNode(name, origin_address[0], origin_address[1])
-        uuid = packet_string[17:21]
+        uuid = packet_string[17:21].decode()
         payload_kwargs = cls.parse_payload_to_kwargs(packet_string[21:])
         return cls(
-            uuid=packet_string[17:21],
+            uuid=packet_string[17:21].decode(),
             origin_node=origin_node,
             destination_node=destination_node,
             **payload_kwargs
@@ -82,9 +82,16 @@ class BaseMessage():
 
     def to_packet_string(self):
         """ Convert Message object to string to be sent in packet"""
-        packet_string = self.TYPE_CODE + \
-            self.get_message_id() + self.serialize_payload_for_packet()
-        return packet_string
+        # packet_string = self.TYPE_CODE + \
+        #     self.get_message_id() + self.serialize_payload_for_packet()
+
+        packet_string = self.TYPE_CODE + self.get_message_id()
+        packet_string = packet_string.encode()
+
+        serialized_payload = self.serialize_payload_for_packet()
+        if type(serialized_payload) != bytes:
+            serialized_payload = serialized_payload.encode()
+        return packet_string + serialized_payload
     """
     Util Functions
     """
@@ -117,6 +124,7 @@ class DiscoveryMessage(BaseMessage):
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
+        packet_payload = packet_payload.decode()
         return {
             'direction': packet_payload[0],
             'payload': packet_payload[1:]
@@ -138,6 +146,7 @@ class HeartbeatMessage(BaseMessage):
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
+        packet_payload = packet_payload.decode()
         return {
             'direction': packet_payload[0],
         }
@@ -168,6 +177,7 @@ class RTTMessage(BaseMessage):
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
+        packet_payload = packet_payload.decode()
         stage = packet_payload[0]
         if stage == "3":
             return {
@@ -213,14 +223,14 @@ class AppMessage(BaseMessage):
 
     @classmethod
     def parse_payload_to_file_kwargs(cls, packet_payload):
-        file_name_length = int(packet_payload[18:20])
-        file_name = packet_payload[20: 20 + file_name_length]
+        file_name_length = int(packet_payload[18:20].decode())
+        file_name = packet_payload[20: 20 + file_name_length].decode()
         data = packet_payload[20 + file_name_length:]
 
         return {
-            'forward': packet_payload[0],
-            'is_file': packet_payload[1],
-            'sender':  packet_payload[2:18],
+            'forward': packet_payload[0:1].decode(),
+            'is_file': packet_payload[1:2].decode(),
+            'sender':  packet_payload[2:18].decode(),
             'file_name': file_name,
             'data': data
         }
@@ -229,10 +239,11 @@ class AppMessage(BaseMessage):
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
 
-        if packet_payload[1] == '1':
+        if packet_payload[1:2].decode() == '1':
             return cls.parse_payload_to_file_kwargs(packet_payload)
 
         # parse payload to string kwargs
+        packet_payload = packet_payload.decode()
         return {
             'forward': packet_payload[0],
             'is_file': packet_payload[1],
@@ -241,8 +252,9 @@ class AppMessage(BaseMessage):
         }
 
     def serialize_payload_for_file_packet(self):
-        return self.forward + self.is_file + self.sender + self.file_name_length() \
-            + self.file_name + self.data
+        non_file_part = self.forward + self.is_file + self.sender + self.file_name_length() \
+            + self.file_name
+        return non_file_part.encode() + self.data
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
@@ -264,6 +276,7 @@ class AckMessage(BaseMessage):
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
+        packet_payload = packet_payload.decode()
         return {"ack_id": packet_payload}
 
     def serialize_payload_for_packet(self):

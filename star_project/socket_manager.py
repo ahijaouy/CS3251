@@ -118,7 +118,6 @@ class SocketManager():
             packet_data=data,
             origin_address=address,
             destination_node=self.node)
-
         self._put_new_message_in_queue(new_message)
         self.report()
         # if new_message.TYPE_STRING != "ack":

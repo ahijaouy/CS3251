@@ -25,14 +25,16 @@ node_3.start_non_blocking()
 # print("~~~~~~~~~~~About to send string message")
 # node_1.broadcast_string("TESTING 123! TESTING 123")
 
-time.sleep(5)
+time.sleep(15)
+print()
+print()
 print("~~~~~~~~~~~About to send file message")
 
-with open('test.txt', 'r') as f:
+with open('image.png', 'rb') as f:
     file_data = f.read()
-    print("TRYING TO SEND:")
-    print(file_data)
-    node_1.broadcast_file("test.txt", file_data)
+    # print("TRYING TO SEND:")
+    # print(file_data)
+    node_1.broadcast_file("image.png", file_data)
 
 
 # # time.sleep(5)
