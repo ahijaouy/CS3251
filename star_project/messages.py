@@ -201,20 +201,56 @@ class AppMessage(BaseMessage):
         super().__init__(**kwargs)
         self.forward = kwargs.get('forward', '0')
         self.is_file = kwargs.get('is_file', '0')
+        self.file_name = kwargs.get('file_name', '')
+        self.sender = kwargs.get('sender')
         self.data = kwargs.get('data')
+
+    def get_sender(self):
+        return self.sender.strip()
+
+    def file_name_length(self):
+        return format(len(self.file_name), '>2')
+
+    @classmethod
+    def parse_payload_to_file_kwargs(cls, packet_payload):
+        file_name_length = int(packet_payload[18:20])
+        file_name = packet_payload[20: 20 + file_name_length]
+        data = packet_payload[20 + file_name_length:]
+
+        return {
+            'forward': packet_payload[0],
+            'is_file': packet_payload[1],
+            'sender':  packet_payload[2:18],
+            'file_name': file_name,
+            'data': data
+        }
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
+
+        if packet_payload[1] == '1':
+            return cls.parse_payload_to_file_kwargs(packet_payload)
+
+        # parse payload to string kwargs
         return {
             'forward': packet_payload[0],
             'is_file': packet_payload[1],
-            'data': packet_payload[2:]
+            'sender':  packet_payload[2:18],
+            'data': packet_payload[18:]
         }
+
+    def serialize_payload_for_file_packet(self):
+        return self.forward + self.is_file + self.sender + self.file_name_length() \
+            + self.file_name + self.data
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        return self.forward + self.is_file + self.data
+
+        if self.is_file == '1':
+            return self.serialize_payload_for_file_packet()
+
+        return self.forward + self.is_file + self.sender + self.data
 
 
 class AckMessage(BaseMessage):

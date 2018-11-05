@@ -18,8 +18,23 @@ time.sleep(6)
 print("~~~~~~~~~~~About to Add new node")
 node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
                   poc_ip=host, poc_port=3000, verbose=True)
-
 node_3.start_non_blocking()
+
+
+# time.sleep(6)
+# print("~~~~~~~~~~~About to send string message")
+# node_1.broadcast_string("TESTING 123! TESTING 123")
+
+time.sleep(5)
+print("~~~~~~~~~~~About to send file message")
+
+with open('test.txt', 'r') as f:
+    file_data = f.read()
+    print("TRYING TO SEND:")
+    print(file_data)
+    node_1.broadcast_file("test.txt", file_data)
+
+
 # # time.sleep(5)
 # print("check directories")
 # print("Node1: ", len(node_1.directory))

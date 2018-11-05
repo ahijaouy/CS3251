@@ -35,6 +35,8 @@ class MessageFactory():
     @classmethod
     def create_message(cls, packet_data, **kwargs):
         message_type = cls._get_message_type(packet_data)
+        if message_type == AppMessage:
+            print("^&^&^&^&^&^ HERE HERE HERE")
         return message_type.from_packet_string(
             packet_string=packet_data, **kwargs)
 
