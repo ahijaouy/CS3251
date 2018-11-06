@@ -120,6 +120,7 @@ class DiscoveryMessage(BaseMessage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.direction = kwargs.get('direction', '0')
+        self.disconnect = kwargs.get('disconnect', '0')
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
@@ -127,12 +128,13 @@ class DiscoveryMessage(BaseMessage):
         packet_payload = packet_payload.decode()
         return {
             'direction': packet_payload[0],
-            'payload': packet_payload[1:]
+            'disconnect': packet_payload[1],
+            'payload': packet_payload[2:]
         }
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        return self.direction + self.payload
+        return self.direction + self.disconnect + self.payload
 
 
 class HeartbeatMessage(BaseMessage):

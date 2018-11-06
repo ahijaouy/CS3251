@@ -73,6 +73,17 @@ class StarNode():
         """ Allows StarNode to be started without blocking """
         self._start_thread(self.start)
 
+    def disconnect(self):
+        for node in self.directory.get_current_list():
+            if self._is_not_self(node):
+                bye_message = MessageFactory.generate_discovery_message(
+                    origin_node=self.socket_manager.node,
+                    destination_node=node,
+                    disconnect="1"
+                )
+                self._log.debug(f'Sending disconnect message to {node.name}')
+                self.socket_manager.send_message(bye_message)
+
     """
     Application Message Functions
 
@@ -158,16 +169,6 @@ class StarNode():
         else:
             self.socket_manager.send_message(app_message)
 
-    # def send_to_central_node(self, data, is_file, origin_node=self.socket_manager.node):
-    #     app_message = MessageFactory.generate_app_message(
-    #         origin_node=origin_node,
-    #         destination_node=self.directory.get(self.central_node),
-    #         forward="1",
-    #         is_file=is_file,
-    #         data=data
-    #     )
-    #     self.socket_manager.send_message(app_message)
-
     def broadcast_as_central_node(self, message):
         for node in self.directory.get_current_list():
             if self._is_not_self(node) and node.get_name() != message.origin_node.get_name():
@@ -214,7 +215,13 @@ class StarNode():
         """ Waits and handles all discovery messages that arrive to this node. """
         while True:
             message = self.socket_manager.get_discovery_message()
-            if message.direction == "0":
+            if message.disconnect == "1":
+                # handle disconnecting node
+                self.directory.remove(message.origin_node.get_name())
+                # TODO: Should recalculate central node
+                self._log.debug(
+                    f'Removed {message.origin_node.get_name()} from directory')
+            elif message.direction == "0":
                 self.respond_to_discovery_message(message)
                 self._log.debug(
                     f'Handled Discovery Message from {message.origin_node.name}')

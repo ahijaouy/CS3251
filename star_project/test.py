@@ -15,26 +15,27 @@ node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
 node_2.start_non_blocking()
 
 time.sleep(6)
-print("~~~~~~~~~~~About to Add new node")
-node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
-                  poc_ip=host, poc_port=3000, verbose=True)
-node_3.start_non_blocking()
+node_1.disconnect()
+# print("~~~~~~~~~~~About to Add new node")
+# node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
+#                   poc_ip=host, poc_port=3000, verbose=True)
+# node_3.start_non_blocking()
 
 
 # time.sleep(6)
 # print("~~~~~~~~~~~About to send string message")
 # node_1.broadcast_string("TESTING 123! TESTING 123")
 
-time.sleep(15)
-print()
-print()
-print("~~~~~~~~~~~About to send file message")
+# time.sleep(15)
+# print()
+# print()
+# print("~~~~~~~~~~~About to send file message")
 
-with open('image.png', 'rb') as f:
-    file_data = f.read()
-    # print("TRYING TO SEND:")
-    # print(file_data)
-    node_1.broadcast_file("image.png", file_data)
+# with open('image.png', 'rb') as f:
+#     file_data = f.read()
+#     # print("TRYING TO SEND:")
+#     # print(file_data)
+#     node_1.broadcast_file("image.png", file_data)
 
 
 # # time.sleep(5)
