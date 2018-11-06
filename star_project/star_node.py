@@ -14,7 +14,7 @@ import json
 import queue
 import os
 from threading import Thread
-
+from tabulate import tabulate
 from contact_directory import ContactDirectory
 from contact_node import ContactNode
 from socket_manager import SocketManager
@@ -38,7 +38,7 @@ class StarNode():
         self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
         self.rtt_queue = queue.Queue()
         self.directory = ContactDirectory()
-        if poc_ip != None and poc_port != None:
+        if poc_ip != 0 and poc_port != 0:
             self.poc = ContactNode("poc", poc_ip, poc_port)
         else:
             self.poc = None
@@ -392,6 +392,8 @@ class StarNode():
         for name, sent_at in sent_times.items():
             recieved_at = response_times[name]
             rtt_sum += recieved_at - sent_at
+            #rtt = recieved_at - sent_at
+            self.directory.get(name).rtt = recieved_at - sent_at
         self._log.debug(f'**************************     RTT SUM: {rtt_sum}')
 
         if rtt_sum < (.99 * self.shortest_rtt):
@@ -442,9 +444,14 @@ class StarNode():
 
 if __name__ == "__main__":
     # TODO implement the CLI
+    host = socket.gethostbyname(socket.gethostname())
+    # host = "127.0.0.1"
+    node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
+                      poc_ip=host, poc_port=3000, verbose=True)
+    node_2.start_non_blocking()
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "name", help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node', type=str)
+        'name', help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node', type=str)
     parser.add_argument(
         'local_port', help='the UDP port number that this star-node should use (for peer discovery)', type=int)
     parser.add_argument(
@@ -453,40 +460,30 @@ if __name__ == "__main__":
         'poc_port', help='the UDP port number of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=int)
     parser.add_argument('n', help='the maximum number of star-nodes', type=int)
     args = parser.parse_args()
-    star = StarNode(name=parser.name, port=parser.local_port, num_nodes=parser.n,
-                    poc_ip=parser.poc_address, poc_port=parser.poc_port, verbose=True)
-    while star.is_online:
+    star = StarNode(name=args.name, port=args.local_port, num_nodes=args.n,
+                    poc_ip=args.poc_address, poc_port=args.poc_port, verbose=True)
+    star.start_non_blocking()
+    while True:
         command_in = input('Star-node command: ')
         command = command_in.split()
         if command[0] == 'send':
             if os.path.isfile(command[1]):
-                app_message = MessageFactory.generate_app_message(
-                    origin_node=origin_node,
-                    destination_node=self.directory.get(self.central_node),
-                    forward="1",
-                    is_file=True,
-                    data=command[1:]
-                )
+                with open(command[1], 'rb') as f:
+                    file_data = f.read()
+                    star.broadcast_file(command[1], file_data)
             else:
-                app_message = MessageFactory.generate_app_message(
-                    origin_node=origin_node,
-                    destination_node=self.directory.get(self.central_node),
-                    forward="1",
-                    is_file=False,
-                    data=command[1:]
-                )
+                str1 = ''.join(command[1:])
+                star.broadcast_string(str1)
+
         if command[0] == 'show-status':
-            d = {}
-            for node in self.directory.get_current_list():
-                d[node.get_name()] = node.get_rtt()
-            max_len = max([len(v) for v in d.values()])
-            padding = 4
-            for k, v in sorted(d.items(), key=lambda i: i[1]):
-                print('{v:{v_len:d}s} {k:3s}'.format(v_len=max_len+padding,
-                                                     v=v, k=k))
-            print(self.directory.star_node.get_name())
+            d = []
+            for node in star.directory.get_current_list():
+                d.append((node.get_name(), node.get_rtt()))
+            print(tabulate(d, headers=['Name', 'RTT']))
+            print('hub star node: ', star.directory.star_node.get_name())
+
         if command[0] == 'disconnect':
-            self.directory.remove(star)
+            star.disconnect()
         if command[0] == 'show-log':
             # PRINT LOG
             pass
