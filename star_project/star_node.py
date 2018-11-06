@@ -12,6 +12,7 @@ import socket
 import time
 import json
 import queue
+import os
 from threading import Thread
 
 from contact_directory import ContactDirectory
@@ -435,10 +436,49 @@ class StarNode():
 
 if __name__ == "__main__":
     # TODO implement the CLI
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument("name", help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node',type=str)
+    parser.add_argument('local_port', help='the UDP port number that this star-node should use (for peer discovery)',type=int)
+    parser.add_argument('poc_address', help='the host-name of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=str)
+    parser.add_argument('poc_port', help='the UDP port number of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=int)
+    parser.add_argument('n',help='the maximum number of star-nodes', type=int)
+    args = parser.parse_args()
+    star = StarNode(name=parser.name, port=parser.local_port, num_nodes=parser.n, 
+        poc_ip=parser.poc_address, poc_port=parser.poc_port, verbose=True)
+    while star.is_online:
+        command_in = input('Star-node command: ')
+        command = command_in.split()
+        if command[0] == 'send':
+            if os.path.isfile(command[1]):
+                app_message = MessageFactory.generate_app_message(
+                    origin_node=origin_node,
+                    destination_node=self.directory.get(self.central_node),
+                    forward="1",
+                    is_file=True,
+                    data=command[1:]
+                )
+            else:
+                app_message = MessageFactory.generate_app_message(
+                    origin_node=origin_node,
+                    destination_node=self.directory.get(self.central_node),
+                    forward="1",
+                    is_file=False,
+                    data=command[1:]
+                )
+        if command[0] == 'show-status':
+            d = {}
+            for node in self.directory.get_current_list():
+                d[node.get_name()] = node.get_rtt()   
+            max_len = max([len(v) for v in d.values()])
+            padding = 4
+            for k,v in sorted(d.items(), key=lambda i:i[1]):
+                print('{v:{v_len:d}s} {k:3s}'.format(v_len=max_len+padding,
+                                                    v=v, k=k))
+            print(self.directory.star_node.get_name())
+        if command[0] == 'disconnect':
+            self.directory.remove(star)
+        if command[0] == 'show-log':
+            #PRINT LOG
+            pass
+    
 
-    # star = StarNode()
-
-    # while True:
-    #     # get input form user
-    #     #execute command
