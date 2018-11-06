@@ -32,6 +32,7 @@ class StarNode():
     def __init__(self, name, port, num_nodes, poc_ip=None, poc_port=None, verbose=False):
         # Initialize instance variables
         self._log = Logger(name, verbose=True)
+        self._log.clear_log()
         self.num_nodes = num_nodes
         self.central_node = None  # Stores name of central node
         self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
@@ -93,19 +94,20 @@ class StarNode():
     def watch_for_app_messages(self):
         while True:
             message = self.socket_manager.get_app_message()
-            if message.forward == "0":
-                # Recieve message
-                if message.is_file == "1":
-                    self.handle_app_message_file(message)
-                else:
-                    self.handle_app_message(message)
+            # if message.forward == "0":
+            # Recieve message
+            # if message.is_file == "1":
+            #     self.handle_app_message_file(message)
+            # else:
+            #     self.handle_app_message(message)
 
-            elif message.forward == "1":
+            # elif message.forward == "1":
+            if message.forward == "1":
                 # Broadcast message
-                if message.is_file == "1":
-                    self.handle_app_message_file(message)
-                else:
-                    self.handle_app_message(message)
+                # if message.is_file == "1":
+                #     self.handle_app_message_file(message)
+                # else:
+                #     self.handle_app_message(message)
                 self.broadcast_as_central_node(message)
                 # if self.central_node == self.socket_manager.node.get_name():
                 #     self.broadcast_as_central_node(
@@ -113,6 +115,10 @@ class StarNode():
                 # else:
                 #     self.send_to_central_node(
                 #         data, message.is_file, message.origin_node)
+            if message.is_file == "1":
+                self.handle_app_message_file(message)
+            else:
+                self.handle_app_message(message)
 
     def handle_app_message(self, message):
         """
@@ -437,14 +443,18 @@ class StarNode():
 if __name__ == "__main__":
     # TODO implement the CLI
     parser = argparse.ArgumentParser()
-    parser.add_argument("name", help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node',type=str)
-    parser.add_argument('local_port', help='the UDP port number that this star-node should use (for peer discovery)',type=int)
-    parser.add_argument('poc_address', help='the host-name of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=str)
-    parser.add_argument('poc_port', help='the UDP port number of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=int)
-    parser.add_argument('n',help='the maximum number of star-nodes', type=int)
+    parser.add_argument(
+        "name", help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node', type=str)
+    parser.add_argument(
+        'local_port', help='the UDP port number that this star-node should use (for peer discovery)', type=int)
+    parser.add_argument(
+        'poc_address', help='the host-name of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=str)
+    parser.add_argument(
+        'poc_port', help='the UDP port number of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=int)
+    parser.add_argument('n', help='the maximum number of star-nodes', type=int)
     args = parser.parse_args()
-    star = StarNode(name=parser.name, port=parser.local_port, num_nodes=parser.n, 
-        poc_ip=parser.poc_address, poc_port=parser.poc_port, verbose=True)
+    star = StarNode(name=parser.name, port=parser.local_port, num_nodes=parser.n,
+                    poc_ip=parser.poc_address, poc_port=parser.poc_port, verbose=True)
     while star.is_online:
         command_in = input('Star-node command: ')
         command = command_in.split()
@@ -468,17 +478,15 @@ if __name__ == "__main__":
         if command[0] == 'show-status':
             d = {}
             for node in self.directory.get_current_list():
-                d[node.get_name()] = node.get_rtt()   
+                d[node.get_name()] = node.get_rtt()
             max_len = max([len(v) for v in d.values()])
             padding = 4
-            for k,v in sorted(d.items(), key=lambda i:i[1]):
+            for k, v in sorted(d.items(), key=lambda i: i[1]):
                 print('{v:{v_len:d}s} {k:3s}'.format(v_len=max_len+padding,
-                                                    v=v, k=k))
+                                                     v=v, k=k))
             print(self.directory.star_node.get_name())
         if command[0] == 'disconnect':
             self.directory.remove(star)
         if command[0] == 'show-log':
-            #PRINT LOG
+            # PRINT LOG
             pass
-    
-

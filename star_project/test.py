@@ -3,28 +3,37 @@ import socket
 import time
 from threading import Thread
 
+
+# TEST LOGGER
+# from logger import Logger
+# mylog = Logger("Node1", verbose=True)
+# mylog.clear_log()
+# mylog.write_to_log("Discovery", "Testing")
+# mylog.write_to_log("Discovery", "Testing1")
+# mylog.write_to_log("Discovery", "Testing2")
+# mylog.read_log()
 node_1 = StarNode(name="Node1", port=3000, num_nodes=3, verbose=True)
 
 node_1.start_non_blocking()
 
 host = socket.gethostbyname(socket.gethostname())
-# host = "127.0.0.1"
+# # host = "127.0.0.1"
 node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
                   poc_ip=host, poc_port=3000, verbose=True)
 
 node_2.start_non_blocking()
 
-time.sleep(6)
-node_1.disconnect()
+# time.sleep(6)
+# node_1.disconnect()
 # print("~~~~~~~~~~~About to Add new node")
 # node_3 = StarNode(name="Node3", port=3002, num_nodes=3,
 #                   poc_ip=host, poc_port=3000, verbose=True)
 # node_3.start_non_blocking()
 
 
-# time.sleep(6)
-# print("~~~~~~~~~~~About to send string message")
-# node_1.broadcast_string("TESTING 123! TESTING 123")
+time.sleep(6)
+print("~~~~~~~~~~~About to send string message")
+node_1.broadcast_string("TESTING 123! TESTING 123")
 
 # time.sleep(15)
 # print()
