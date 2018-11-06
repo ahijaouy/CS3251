@@ -14,7 +14,7 @@ import json
 import queue
 import os
 from threading import Thread
-
+from tabulate import tabulate
 from contact_directory import ContactDirectory
 from contact_node import ContactNode
 from socket_manager import SocketManager
@@ -386,6 +386,8 @@ class StarNode():
         for name, sent_at in sent_times.items():
             recieved_at = response_times[name]
             rtt_sum += recieved_at - sent_at
+            #rtt = recieved_at - sent_at
+            self.directory.get(name).rtt = recieved_at - sent_at
         self._log.debug(f'**************************     RTT SUM: {rtt_sum}')
 
         if rtt_sum < (.99 * self.shortest_rtt):
@@ -418,7 +420,7 @@ class StarNode():
                 self._log.debug(f'Sending RTT message to {node.name}')
                 self.socket_manager.send_message(rtt_message)
                 rtt_sent_times[node.get_name()] = time.time()
-
+                
         while len(rtt_response_times) < len(rtt_sent_times):
             name, time_recieved = self.rtt_queue.get()
             rtt_response_times[name] = time_recieved
@@ -436,6 +438,11 @@ class StarNode():
 
 if __name__ == "__main__":
     # TODO implement the CLI
+    host = socket.gethostbyname(socket.gethostname())
+    # host = "127.0.0.1"
+    node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
+                    poc_ip=host, poc_port=3000, verbose=True)
+    node_2.start_non_blocking()
     parser = argparse.ArgumentParser()
     parser.add_argument('name', help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node',type=str)
     parser.add_argument('local_port', help='the UDP port number that this star-node should use (for peer discovery)',type=int)
@@ -457,19 +464,16 @@ if __name__ == "__main__":
             else:
                 str1 = ''.join(command[1:])
                 star.broadcast_string(str1)
+
         if command[0] == 'show-status':
-            d = {}
+            d = []
             for node in star.directory.get_current_list():
-                d[node.get_name()] = node.get_rtt()   
+                d.append((node.get_name(),node.get_rtt()))
+            print(tabulate(d,headers=['Name','RTT']))
+            print('hub star node: ', star.directory.star_node.get_name())
             
-            max_len = max([len(v) for v in d.values()])
-            padding = 4
-            for k,v in sorted(d.items(), key=lambda i:i[1]):
-                print('{v:{v_len:d}s} {k:3s}'.format(v_len=max_len+padding,
-                                                    v=v, k=k))
-            print(star.directory.star_node.get_name())
         if command[0] == 'disconnect':
-            star.directory.remove(star)
+            star.disconnect()
         if command[0] == 'show-log':
             #PRINT LOG
             pass
