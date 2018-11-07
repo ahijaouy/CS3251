@@ -32,7 +32,7 @@ class Logger():
             message = f'{time} | {message_type} -- {text}\n'
             f.write(message)
 
-    def read_log(self):
+    def print_log(self):
         with open(self.log_file_name, "r") as f:
             contents = f.read()
             print(contents)

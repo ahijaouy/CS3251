@@ -21,6 +21,8 @@ from socket_manager import SocketManager
 from message_factory import MessageFactory
 from logger import Logger
 
+# from discovery import DiscoveryModule
+
 
 class StarNode():
     # Timeout constants
@@ -28,16 +30,18 @@ class StarNode():
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
     INITIAL_RTT_DEFAULT = 10
+    RTT_COUNTDOWN_INIT = 60
 
-    def __init__(self, name, port, num_nodes, poc_ip=None, poc_port=None, verbose=False):
+    def __init__(self, name, port, num_nodes, poc_ip=0, poc_port=0, verbose=False):
         # Initialize instance variables
-        self._log = Logger(name, verbose=True)
+        self._log = Logger(name, verbose=verbose)
         self._log.clear_log()
         self.num_nodes = num_nodes
         self.central_node = None  # Stores name of central node
         self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
         self.rtt_queue = queue.Queue()
-        self.directory = ContactDirectory()
+        self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
+        self.directory = ContactDirectory(name, verbose)
         if poc_ip != 0 and poc_port != 0:
             self.poc = ContactNode("poc", poc_ip, poc_port)
         else:
@@ -48,6 +52,12 @@ class StarNode():
             name, port, self.report, verbose)
         self.directory.set_star_node(self.socket_manager.node)
         self.name = self.socket_manager.node.get_name()
+
+        # self.discovery = DiscoveryModule(
+        #     socket_manager=self.socket_manager,
+        #     directory=self.directory,
+        #     logger=self._log,
+        #     calculate_rtt=self.calculate_rtt)
 
     """
     General Control Functions
@@ -60,12 +70,13 @@ class StarNode():
 
         if self.poc != None:
             self.send_discovery_message(self.poc)
+        # self.discovery.start_non_blocking()
         self._start_thread(self.watch_for_discovery_messages, daemon=True)
         # self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
         # self._start_thread(self.send_heartbeat_messages, daemon=True)
         # self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
         self._start_thread(self.watch_for_rtt_messages, daemon=True)
-        # self._start_thread(self.calculate_rtt, daemon=True)
+        self._start_thread(self.calculate_rtt_timer, daemon=True)
         self._start_thread(self.watch_for_app_messages, daemon=True)
 
         while True:  # Blocking. Nothing can go below this
@@ -73,7 +84,10 @@ class StarNode():
 
     def start_non_blocking(self):
         """ Allows StarNode to be started without blocking """
-        self._start_thread(self.start)
+        self._start_thread(self.start, daemon=True)
+
+    def print_log(self):
+        self._log.print_log()
 
     def disconnect(self):
         for node in self.directory.get_current_list():
@@ -85,6 +99,25 @@ class StarNode():
                 )
                 self._log.debug(f'Sending disconnect message to {node.name}')
                 self.socket_manager.send_message(bye_message)
+        self._log.write_to_log("Terminated", 'Node has gracefully terminated.')
+        # TODO: UNCOMMENT WHEN DONE WITH TESTING FILE
+        import sys
+        sys.exit(f'{self.name} has gracefully terminated.')
+
+    def report(self):
+        """ Updates the time a packet was last received from {message.get_sender()} """
+        self.last_contacted = time.time()
+
+    def check_for_inactivity(self):
+        """ 
+        Monitors when the node was last active. 
+
+        If node has been inactive (received no packets) for more than 
+        3 minutes (NO_CONTACT_TIMEOUT) then terminated program
+        """
+        if self.last_contacted + self.NO_CONTACT_TIMEOUT < time.time():
+            import sys
+            sys.exit("StarNode terminated due to inactivity with other nodes")
 
     """
     Application Message Functions
@@ -94,27 +127,10 @@ class StarNode():
     def watch_for_app_messages(self):
         while True:
             message = self.socket_manager.get_app_message()
-            # if message.forward == "0":
-            # Recieve message
-            # if message.is_file == "1":
-            #     self.handle_app_message_file(message)
-            # else:
-            #     self.handle_app_message(message)
-
-            # elif message.forward == "1":
             if message.forward == "1":
-                # Broadcast message
-                # if message.is_file == "1":
-                #     self.handle_app_message_file(message)
-                # else:
-                #     self.handle_app_message(message)
                 self.broadcast_as_central_node(message)
-                # if self.central_node == self.socket_manager.node.get_name():
-                #     self.broadcast_as_central_node(
-                #         message.data, message.origin_node)
-                # else:
-                #     self.send_to_central_node(
-                #         data, message.is_file, message.origin_node)
+                self._log.write_to_log(
+                    "Message", f'Message from {message.origin_node.get_name()} forwarded as central node.')
             if message.is_file == "1":
                 self.handle_app_message_file(message)
             else:
@@ -124,23 +140,24 @@ class StarNode():
         """
         Handles displaying the app message to the user
         """
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-        print(f'Message recieved from: {message.get_sender()}...')
-        print(message.data)
-        print(f'WHO AM I: {self.name}')
-        # self._log.debug(
-        #     f'Handled App Message from {message.get_sender()}')
-        # if message.is_file == "1":
+        to_print = f'\nMessage recieved from: {message.get_sender()}...\n'
+        to_print += message.data
+        to_print += '\nStar-node command:'
+        print(to_print)
+        # print(f'Message recieved from: {message.get_sender()}...')
+        # print(message.data)
+        # print(f'WHO AM I: {self.name}')
+        self._log.write_to_log(
+            "Message", f'Message received from {message.get_sender()} ')
 
     def handle_app_message_file(self, message):
         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         print(f'File recieved from: {message.get_sender()}...')
-
-        test_file_name = f'{self.name}-{message.file_name}'
-        with open(test_file_name, 'wb') as f:
-            # print(message.data)
+        with open(f'{self.name}-{message.file_name}', 'wb') as f:
             f.write(message.data)
         print(f'FILE {message.file_name} SAVED!')
+        self._log.write_to_log(
+            "Message", f'Message received from {message.get_sender()} ')
 
     def broadcast_string(self, data):
         """
@@ -149,6 +166,7 @@ class StarNode():
         app_message = MessageFactory.generate_app_message(
             origin_node=self.socket_manager.node,
             destination_node=self.directory.get(self.central_node),
+            # destination_node=self.directory.get_central_node(),
             forward='1',
             is_file='0',
             sender=self.socket_manager.node.get_16_byte_name(),
@@ -159,11 +177,13 @@ class StarNode():
             self.broadcast_as_central_node(app_message)
         else:
             self.socket_manager.send_message(app_message)
+        self._log.write_to_log("Message", f'Message sent to all nodes.')
 
     def broadcast_file(self, file_name, data):
         app_message = MessageFactory.generate_app_message(
             origin_node=self.socket_manager.node,
-            destination_node=self.directory.get(self.central_node),
+            destination_node=self.central_node,
+            # destination_node=self.directory.get_central_node(),
             forward='1',
             is_file='1',
             sender=self.socket_manager.node.get_16_byte_name(),
@@ -175,6 +195,7 @@ class StarNode():
             self.broadcast_as_central_node(app_message)
         else:
             self.socket_manager.send_message(app_message)
+        self._log.write_to_log("Message", f'Message sent to all nodes.')
 
     def broadcast_as_central_node(self, message):
         for node in self.directory.get_current_list():
@@ -190,21 +211,6 @@ class StarNode():
                 )
                 self._log.debug(f'Sending app message to {node.name}')
                 self.socket_manager.send_message(app_message)
-
-    def report(self):
-        """ Updates the time a packet was last received """
-        self.last_contacted = time.time()
-
-    def check_for_inactivity(self):
-        """ 
-        Monitors when the node was last active. 
-
-        If node has been inactive (recieved no packets) for more than 
-        3 minutes (NO_CONTACT_TIMEOUT) then terminated program
-        """
-        if self.last_contacted + self.NO_CONTACT_TIMEOUT < time.time():
-            import sys
-            sys.exit("StarNode terminated due to inactivity with other nodes")
 
     def _is_central_node(self):
         return self.central_node == self.name
@@ -226,6 +232,8 @@ class StarNode():
                 # handle disconnecting node
                 self.directory.remove(message.origin_node.get_name())
                 # TODO: Should recalculate central node
+                self._log.write_to_log(
+                    "Discovery", f'{message.origin_node.get_name()} has terminated.')
                 self._log.debug(
                     f'Removed {message.origin_node.get_name()} from directory')
             elif message.direction == "0":
@@ -235,7 +243,9 @@ class StarNode():
             elif message.direction == "1":
                 serialized_directory = message.get_payload()
                 self.directory.merge_serialized_directory(serialized_directory)
-                self._start_thread(self.calculate_rtt, daemon=True)
+
+                # self._start_thread(self.calculate_rtt, daemon=True)
+                self.initiate_rtt_calculation()
                 self._log.debug(
                     f'Directory updated (n={self.directory.size()})')
 
@@ -252,6 +262,8 @@ class StarNode():
 
     def send_discovery_message(self, destination):
         """ Sends a Discovery Request Message to the destination"""
+        self._log.debug(
+            f'###### about to send Discovery message to {destination.get_name()}')
         discovery_message = MessageFactory.generate_discovery_message(
             origin_node=self.socket_manager.node,
             destination_node=destination,
@@ -277,6 +289,8 @@ class StarNode():
             for node in self.directory.get_current_list():
                 if node.is_unresponsive():
                     self.directory.remove(node.name)
+                    self._log.write_to_log(
+                        "Heartbeat", f'{name} has stopped responding.')
 
     def watch_for_heartbeat_messages(self):
         """ Waits and handles all heartbeat messages that arrive to this node. """
@@ -358,9 +372,12 @@ class StarNode():
             elif message.stage == "3":
                 if self.shortest_rtt == self.INITIAL_RTT_DEFAULT:
                     self.central_node = message.get_central_node()
+                    # self.directory.set_central_node(message.get_central_node())
                     self.shortest_rtt = message.get_rtt_sum()
                     self._log.debug(
                         f'____________________________Central Node Updated to: {message.get_central_node()}')
+                    self._log.write_to_log(
+                        "RTT", f'Initial Central Node recieved: {message.get_central_node()}')
                 self._log.debug(
                     f'Recieved RTT Initial Settings Broadcast from {message.origin_node.name}')
 
@@ -374,18 +391,26 @@ class StarNode():
         self.socket_manager.send_message(rtt_message)
 
     def handle_rtt_response(self, message):
-        self.rtt_queue.put((message.origin_node.get_name(), time.time()))
+        recieved_time = time.time()
+        sender = message.origin_node.get_name()
+        self._log.write_to_log("RTT", f'Response received from {sender} ')
+        self.rtt_queue.put((sender, recieved_time))
 
     def handle_rtt_broadcast(self, message):
 
         new_rtt_sum = message.get_rtt_sum()
         self._log.debug(f'Inside RTT BROADCAST HANDLER:  {new_rtt_sum}')
+        self._log.write_to_log(
+            "RTT", f'Received RTT Sum Broadcast from {message.origin_node.get_name()}. RTT Sum: {new_rtt_sum} ')
 
         if ((new_rtt_sum < (.99 * self.shortest_rtt)) or (self.shortest_rtt == self.INITIAL_RTT_DEFAULT)):
             self._log.debug(
                 f'____________________________Central Node Updated to: {message.origin_node.get_name()}')
             self.central_node = message.origin_node.get_name()
+            # self.directory.set_central_node(message.origin_node.get_name())
             self.shortest_rtt = new_rtt_sum
+            self._log.write_to_log(
+                "RTT", f'New Central Node picked: {self.central_node}.')
 
     def process_rtt_times(self, sent_times, response_times):
         rtt_sum = 0.0
@@ -395,12 +420,17 @@ class StarNode():
             #rtt = recieved_at - sent_at
             self.directory.get(name).rtt = recieved_at - sent_at
         self._log.debug(f'**************************     RTT SUM: {rtt_sum}')
-
+        self._log.write_to_log(
+            "RTT", f'New RTT sum computed: {rtt_sum} ')
         if rtt_sum < (.99 * self.shortest_rtt):
             self.shortest_rtt = rtt_sum
             self.central_node = self.socket_manager.node.get_name()
+            # self.directory.set_central_node(
+            #     self.socket_manager.node.get_name())
             self._log.debug(
                 f'____________________________Central Node Updated to: SELF')
+            self._log.write_to_log(
+                "RTT", f'New Central Node picked: {self.central_node}.')
 
         for node in self.directory.get_current_list():
             if node.get_name() != self.directory.star_node.get_name():
@@ -412,6 +442,20 @@ class StarNode():
                 )
                 self.socket_manager.send_message(rtt_message)
         self._log.debug(f'Sending RTT Broadcast to all')
+
+    def initiate_rtt_calculation(self, when=5):
+        self.rtt_countdown = time.time() + when
+
+    def calculate_rtt_timer(self):
+        """
+        Blocks and calculates RTT whenever self.rtt_countdown < time.time()
+        """
+        while True:
+            while time.time() < self.rtt_countdown:
+                time.sleep(.5)
+            self.calculate_rtt()
+            if self.rtt_countdown < time.time():
+                self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
 
     def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
@@ -426,6 +470,8 @@ class StarNode():
                 self._log.debug(f'Sending RTT message to {node.name}')
                 self.socket_manager.send_message(rtt_message)
                 rtt_sent_times[node.get_name()] = time.time()
+                self._log.write_to_log(
+                    "RTT", f'Request sent to {node.get_name()} ')
 
         while len(rtt_response_times) < len(rtt_sent_times):
             name, time_recieved = self.rtt_queue.get()
@@ -445,10 +491,13 @@ class StarNode():
 if __name__ == "__main__":
     # TODO implement the CLI
     host = socket.gethostbyname(socket.gethostname())
+    print(f'Host: {host}')
     # host = "127.0.0.1"
-    node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
-                      poc_ip=host, poc_port=3000, verbose=True)
-    node_2.start_non_blocking()
+    # node_2 = StarNode(name="Node2", port=3001, num_nodes=3,
+    #                   poc_ip=host, poc_port=3000, verbose=True)
+    # node_2.start_non_blocking()
+    # REMOVE ABOVE FOR FINAL SUBMISSION
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'name', help='an ASCII string (Min: 1 character, Max: 16 characters) that names that star-node', type=str)
@@ -460,30 +509,46 @@ if __name__ == "__main__":
         'poc_port', help='the UDP port number of the PoC for this star-node. Set to 0 if this star-node does not have a PoC', type=int)
     parser.add_argument('n', help='the maximum number of star-nodes', type=int)
     args = parser.parse_args()
+    # print("Right here")
+    # command_in = input('Star-node command: ')
+    # print(command_in)
     star = StarNode(name=args.name, port=args.local_port, num_nodes=args.n,
-                    poc_ip=args.poc_address, poc_port=args.poc_port, verbose=True)
+                    poc_ip=args.poc_address, poc_port=args.poc_port, verbose=False)
     star.start_non_blocking()
-    while True:
+    running = True
+    while running:
         command_in = input('Star-node command: ')
         command = command_in.split()
         if command[0] == 'send':
             if os.path.isfile(command[1]):
-                with open(command[1], 'rb') as f:
+                file_name = command[1]
+                with open(file_name, 'rb') as f:
                     file_data = f.read()
-                    star.broadcast_file(command[1], file_data)
+                    star.broadcast_file(file_name, file_data)
             else:
-                str1 = ''.join(command[1:])
-                star.broadcast_string(str1)
+                string_to_send = ''.join(command[1:])
+                star.broadcast_string(string_to_send)
 
-        if command[0] == 'show-status':
+        elif command[0] == 'show-status':
             d = []
             for node in star.directory.get_current_list():
                 d.append((node.get_name(), node.get_rtt()))
             print(tabulate(d, headers=['Name', 'RTT']))
             print('hub star node: ', star.directory.star_node.get_name())
 
-        if command[0] == 'disconnect':
+        elif command[0] == 'disconnect':
             star.disconnect()
-        if command[0] == 'show-log':
-            # PRINT LOG
-            pass
+            running = False
+            import sys
+            sys.exit(f'{self.name} has gracefully terminated.')
+        elif command[0] == 'show-log':
+            star.print_log()
+
+        else:
+            print("we are alive")
+        # help_message = "Please enter a valid StarNode command.\n"
+        # help_message += "Command: send <message or file>\n"
+        # help_message += "Command: show-status\n"
+        # help_message += "Command: show-log\n"
+        # help_message += "Command: disconnect\n"
+        # print(help_message)

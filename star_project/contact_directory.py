@@ -8,14 +8,29 @@ Stores information about multiple Contact Nodes
 import json
 import threading
 from contact_node import ContactNode
+from logger import Logger
 
 
 class ContactDirectory():
 
-    def __init__(self):
+    def __init__(self, name, verbose):
+        self.name = name
+        self._log = Logger(name, verbose=verbose)
         self.directory = {}
         self.star_node = None
+        # self.central_node = None
+        # self.central_node_lock = threading.RLock()
         self.lock = threading.RLock()
+
+    # def get_central_node(self):
+    #     if self.central_node != None:
+    #         with self.central_node_lock:
+    #             return self.get(self.central_node)
+    #     return None
+
+    # def set_central_node(self, name):
+    #     with self.central_node_lock:
+    #         self.central_node = name
 
     def set_star_node(self, star_node):
         self.star_node = star_node
@@ -30,10 +45,18 @@ class ContactDirectory():
                 self.directory[node.name] = node
 
     def get(self, name):
+        if name == self.star_node.get_name():
+            return self.star_node
         with self.lock:
-            if self.directory[name].is_online:
-                return self.directory[name]
-            raise ValueError()
+
+            try:
+                node = self.directory[name]
+                if node.is_online:
+                    return self.directory[name]
+                raise ValueError()
+            except KeyError:
+                import pdb
+                pdb.set_trace()
 
     def exists(self, name):
         with self.lock:
@@ -62,4 +85,7 @@ class ContactDirectory():
         with self.lock:
             for item in serialized_directory:
                 node = ContactNode.create_from_json(item)
-                self.directory[node.name] = node
+                if not (node.name in self.directory) and node.name != self.name:
+                    self.directory[node.name] = node
+                    self._log.write_to_log(
+                        "Discovery", f'{node.name} discovered.')
