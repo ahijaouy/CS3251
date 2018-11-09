@@ -22,18 +22,16 @@ class ContactDirectory():
         # self.central_node_lock = threading.RLock()
         self.lock = threading.RLock()
 
-    # def get_central_node(self):
-    #     if self.central_node != None:
-    #         with self.central_node_lock:
-    #             return self.get(self.central_node)
-    #     return None
-
-    # def set_central_node(self, name):
-    #     with self.central_node_lock:
-    #         self.central_node = name
+    def poc_not_added(self, poc):
+        for key in self.directory:
+            node = self.directory[key]
+            if node.ip == poc.ip and node.port == poc.port:
+                return False
+        return True
 
     def set_star_node(self, star_node):
         self.star_node = star_node
+        # self.add(star_node)
 
     def size(self):
         with self.lock:
@@ -77,7 +75,8 @@ class ContactDirectory():
         directory = [self.star_node.to_json()]
         with self.lock:
             for key in self.directory:
-                directory.append(self.directory[key].to_json())
+                if self.directory[key].is_online:
+                    directory.append(self.directory[key].to_json())
             return json.dumps(directory)
 
     def merge_serialized_directory(self, serialized_directory):

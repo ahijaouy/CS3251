@@ -34,7 +34,7 @@ class ContactNode():
 
     def get_name(self):
         return self.name.strip()
-    
+
     def get_rtt(self):
         return self.rtt
 

@@ -5,7 +5,6 @@ Logger
 Provides Basic Logging functions in a single place.
 """
 from time import gmtime, strftime
-strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
 
 class Logger():
