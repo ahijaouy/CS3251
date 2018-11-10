@@ -172,20 +172,18 @@ class RTTMessage(BaseMessage):
         super().__init__(**kwargs)
         self.stage = kwargs.get("stage", '0')
         self.rtt_sum = kwargs.get("rtt_sum", "")
-        self.central_node = kwargs.get("central_node", "")
-        if self.central_node != "":
-            self.central_node = format(self.central_node, '>16')
+        self.network_size = kwargs.get("network_size", "")
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
         """ Parse package payload string to a dict to be passed to constructor """
         packet_payload = packet_payload.decode()
         stage = packet_payload[0]
-        if stage == "3":
+        if stage == "2":
             return {
                 'stage': packet_payload[0],
-                'central_node': packet_payload[1:17],
-                'rtt_sum': packet_payload[17:]
+                'network_size': packet_payload[1],
+                'rtt_sum': packet_payload[2:]
             }
         return {
             'stage': packet_payload[0],
@@ -194,15 +192,15 @@ class RTTMessage(BaseMessage):
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        return self.stage + self.central_node + str(self.rtt_sum)
+        return self.stage + str(self.network_size) + str(self.rtt_sum)
 
     def get_rtt_sum(self):
-        if self.stage == '2' or self.stage == '3':
+        if self.stage == '2':
             return float(self.rtt_sum)
 
-    def get_central_node(self):
-        if self.stage == "3":
-            return self.central_node.strip()
+    def get_network_size(self):
+        if self.stage == "2":
+            return int(self.network_size)
 
 
 class AppMessage(BaseMessage):

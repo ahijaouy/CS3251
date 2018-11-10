@@ -31,34 +31,37 @@ class ContactDirectory():
 
     def set_star_node(self, star_node):
         self.star_node = star_node
-        # self.add(star_node)
+        self.add(star_node)
 
     def size(self):
         with self.lock:
-            return len(self.directory)
+            size = 0
+            for name in self.directory:
+                if self.directory[name].is_online:
+                    size += 1
+            return size
 
     def add(self, node):
         with self.lock:
-            if node not in self.directory:
+            if node.name not in self.directory:
                 self.directory[node.name] = node
+            elif node.name in self.directory:
+                self.directory[node.name].revive()
 
     def get(self, name):
-        if name == self.star_node.get_name():
+        if name == self.name:
             return self.star_node
         with self.lock:
-
-            try:
-                node = self.directory[name]
-                if node.is_online:
-                    return self.directory[name]
-                raise ValueError()
-            except KeyError:
-                import pdb
-                pdb.set_trace()
+            node = self.directory[name]
+            if node.is_online:
+                return self.directory[name]
+            raise ValueError()
 
     def exists(self, name):
         with self.lock:
-            return name in self.directory
+            if name in self.directory:
+                return self.directory[name].is_online
+            return False
 
     def remove(self, name):
         with self.lock:
@@ -66,13 +69,13 @@ class ContactDirectory():
 
     def get_current_list(self):
         with self.lock:
-            copy_dict = {k: v for k, v in self.directory.items()
-                         if v.is_online}
-            return copy_dict.values()
+            online_nodes = {k: v for k, v in self.directory.items()
+                            if v.is_online and k != self.name}
+            return online_nodes.values()
 
     def serialize(self):
         """ Serializes the ContactNode Directory to JSON """
-        directory = [self.star_node.to_json()]
+        directory = []
         with self.lock:
             for key in self.directory:
                 if self.directory[key].is_online:
@@ -84,7 +87,13 @@ class ContactDirectory():
         with self.lock:
             for item in serialized_directory:
                 node = ContactNode.create_from_json(item)
-                if not (node.name in self.directory) and node.name != self.name:
-                    self.directory[node.name] = node
-                    self._log.write_to_log(
-                        "Discovery", f'{node.name} discovered.')
+                if node.name != self.name:
+                    if node.name in self.directory:
+                        if not self.directory[node.name].is_online:
+                            self.directory[node.name].revive()
+                            self._log.write_to_log(
+                                "Discovery", f'{node.name} discovered.')
+                    else:
+                        self.directory[node.name] = node
+                        self._log.write_to_log(
+                            "Discovery", f'{node.name} discovered.')

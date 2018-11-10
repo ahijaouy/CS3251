@@ -16,7 +16,7 @@ class ContactNode():
         self.name = name
         self.ip = ip
         self.port = port
-        self.rtt = None
+        self.rtt = 9999999999
         self.last_contact = time.time()
         self.is_online = True
 
@@ -51,3 +51,8 @@ class ContactNode():
 
     def heartbeat(self):
         self.last_contact = time.time()
+
+    def revive(self):
+        self.is_online = True
+        self.last_contact = time.time()
+        self.rtt = 88888888
