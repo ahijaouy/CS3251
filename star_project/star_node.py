@@ -14,7 +14,6 @@ import json
 import queue
 import os
 from threading import Thread
-from tabulate import tabulate
 from contact_directory import ContactDirectory
 from contact_node import ContactNode
 from socket_manager import SocketManager
@@ -85,7 +84,6 @@ class StarNode():
 
     def disconnect(self):
         for node in self.directory.get_current_list():
-
             bye_message = MessageFactory.generate_discovery_message(
                 origin_node=self.socket_manager.node,
                 destination_node=node,
@@ -94,7 +92,7 @@ class StarNode():
             self._log.debug(f'Sending disconnect message to {node.name}')
             self.socket_manager.send_message(bye_message)
         self._log.write_to_log("Terminated", 'Node has gracefully terminated.')
-        # TODO: UNCOMMENT WHEN DONE WITH TESTING FILE
+
         import sys
         sys.exit(f'{self.name} has gracefully terminated.')
 
@@ -509,11 +507,11 @@ if __name__ == "__main__":
         elif command[0] == 'show-status':
             d = []
             rtt_sum = 0
-            for node in star.directory.get_current_list():
-                d.append((node.get_name(), node.rtt))
-                rtt_sum += node.rtt
             print("\n--------- Current Status ---------")
-            print(tabulate(d, headers=['Name', 'RTT']))
+            print(format("Name", "<16"), "RTT")
+            for node in star.directory.get_current_list():
+                print(format(node.get_name(), "<16"), node.rtt)
+                rtt_sum += node.rtt
             print(f'\nMy RTT sum: {rtt_sum}\n')
             print(f'\nCentral Node: {star.central_node}')
             print(f'Shortest RTT: {star.shortest_rtt}\n')
