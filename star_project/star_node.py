@@ -23,7 +23,6 @@ from logger import Logger
 
 class StarNode():
     # Timeout constants
-    HEARTBEAT_TIMEOUT = 5  # seconds
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
     INITIAL_RTT_DEFAULT = 10
@@ -136,16 +135,12 @@ class StarNode():
         to_print += message.data
         to_print += '\nStar-node command:'
         print(to_print)
-        # print(f'Message recieved from: {message.get_sender()}...')
-        # print(message.data)
-        # print(f'WHO AM I: {self.name}')
         self._log.write_to_log(
             "Message", f'Message received from {message.get_sender()} ')
 
     def handle_app_message_file(self, message):
         with open(f'{self.name}-{message.file_name}', 'wb') as f:
             f.write(message.data)
-        # print(f'FILE {message.file_name} SAVED!')
         to_print = f'\nMessage recieved from: {message.get_sender()}...\n'
         to_print += f'File recieved: {message.file_name}\n'
         to_print += 'Star-node command:'
@@ -251,8 +246,7 @@ class StarNode():
             direction="1",
             payload=self.directory.serialize())
         self.socket_manager.send_message(resp_msg)
-        known = self.ensure_sender_is_known(message)
-        print(f"Inside respond to discovery message. Known = {known}")
+        self.ensure_sender_is_known(message)
 
     def send_discovery_message(self, destination):
         """ Sends a Discovery Request Message to the destination"""
@@ -270,9 +264,6 @@ class StarNode():
         if not self.directory.exists(message.origin_node.get_name()):
             self.shortest_rtt = 8
             self.send_discovery_message(message.origin_node)
-            return False
-
-        return True
 
     """
     Heartbeat Functions
@@ -400,8 +391,6 @@ class StarNode():
 
         # Check to see if self is shortest RTT
         if rtt_sum < self.shortest_rtt:
-            print(f"MY RTT SUM: {rtt_sum}")
-            print(f"SHORTEST RTT: {self.shortest_rtt}")
             self.shortest_rtt = rtt_sum
             self.central_node = self.name
             self._log.debug(
@@ -411,7 +400,6 @@ class StarNode():
 
         # Broadcast RTT Sums
         for node in self.directory.get_current_list():
-
             rtt_message = MessageFactory.generate_rtt_message(
                 origin_node=self.socket_manager.node,
                 destination_node=node,
