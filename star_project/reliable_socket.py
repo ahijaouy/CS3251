@@ -36,7 +36,9 @@ class ReliableSocket():
         """ Blocks and listens for incoming packets """
         try:
             while True:
+                print("before sock.recvfrom")
                 data, address = self.sock.recvfrom(655070)
+                print("after sock.recvfrom")
                 # self.send_ack(data, address)
                 self.process_incoming_packet(data, address)
 
