@@ -23,7 +23,7 @@ from logger import Logger
 
 
 class SocketManager():
-    ACK_TIMEOUT = 1.2  # seconds
+    ACK_TIMEOUT = 1.5  # seconds
 
     def __init__(self, name, port, report_func, verbose=False):
         self._log = Logger(name, verbose)
@@ -106,7 +106,7 @@ class SocketManager():
                 if sent_message.resent < 5:
                     self.send_message(sent_message)
                     self._log.write_to_log(
-                        "ACK", f"Resending message to {sent_message.destination_node.get_name()}")
+                        "ACK", f"Resending message {sent_message.uuid} to {sent_message.destination_node.get_name()}")
                 else:
                     self._log.write_to_log(
                         "ACK", f"Drop message to {sent_message.destination_node.get_name()}")
