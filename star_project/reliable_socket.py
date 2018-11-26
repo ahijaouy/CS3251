@@ -37,11 +37,14 @@ class ReliableSocket():
         try:
             self._log.debug(f'Socket is listening...')
             while True:
-
-                data, address = self.sock.recvfrom(64000)
-                self._log.debug(f'Socket received packet from: {address[0]}')
-                # self.send_ack(data, address)
-                self.process_incoming_packet(data, address)
+                try:
+                    data, address = self.sock.recvfrom(64000)
+                    print("packet received")
+                    # self.send_ack(data, address)
+                    self.process_incoming_packet(data, address)
+                    print("Processed successfully")
+                except Exception as e:
+                    print(e)
 
         except Exception as e:
             self._log.error("in ReliableSocket while listening for packets", e)
