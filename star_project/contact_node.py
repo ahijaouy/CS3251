@@ -28,8 +28,8 @@ class ContactNode():
         return cls(name=data["name"], ip=data["ip"], port=data["port"])
 
     def update_rtt_sum(self, new_sum, size):
-        self.rtt_sum.sum = new_sum
-        self.rtt_sum.size = size
+        self.rtt_sum["sum"] = new_sum
+        self.rtt_sum["network_size"] = size
 
     def get_address(self):
         return (self.ip, self.port)
