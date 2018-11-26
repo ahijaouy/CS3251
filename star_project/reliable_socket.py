@@ -36,10 +36,7 @@ class ReliableSocket():
         """ Blocks and listens for incoming packets """
         try:
             while True:
-                print("before sock.recvfrom")
                 data, address = self.sock.recvfrom(655070)
-                print("after sock.recvfrom")
-                # self.send_ack(data, address)
                 self.process_incoming_packet(data, address)
 
         except Exception as e:
@@ -69,12 +66,9 @@ class ReliableSocket():
         data, destination = message.prepare_packet()
         try:
             self.sock.sendto(data, destination)
-            if message.TYPE_CODE == "A":
-                print("APP MESSAGE SENT SUCCESSFULLY")
             return message.uuid
         except Exception as e:
             print(e)
-            self._log.error("in ReliableSocket while sending message", e)
 
     """ 
     Util Functions

@@ -61,12 +61,11 @@ class StarNode():
 
         if self.poc != None:
             self._start_thread(self.contact_poc, daemon=True)
-            # self.send_discovery_message(self.poc)
-        # self.discovery.start_non_blocking()
+            self.send_discovery_message(self.poc)
         self._start_thread(self.watch_for_discovery_messages, daemon=True)
-        # self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
-        # self._start_thread(self.send_heartbeat_messages, daemon=True)
-        # self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
+        self._start_thread(self.watch_for_heartbeat_messages, daemon=True)
+        self._start_thread(self.send_heartbeat_messages, daemon=True)
+        self._start_thread(self.watch_for_heartbeat_timeouts, daemon=True)
         self._start_thread(self.watch_for_rtt_messages, daemon=True)
         self._start_thread(self.calculate_rtt_timer, daemon=True)
         self._start_thread(self.watch_for_app_messages, daemon=True)
