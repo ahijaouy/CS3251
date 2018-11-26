@@ -6,6 +6,7 @@ Contains classes for all different types of messages used in the StarNet.
 """
 import json
 import random
+import time
 from contact_node import ContactNode
 
 
@@ -34,6 +35,7 @@ class BaseMessage():
         self.origin_node = self._ensure_contact_node(origin_node)
         self.destination_node = self._ensure_contact_node(destination_node)
         self.payload = self._ensure_json_string(payload)
+        self.resent = 0
 
     """
     Functions to Override
@@ -163,7 +165,6 @@ class RTTMessage(BaseMessage):
     Stage 0: RTT Initial Request
     Stage 1: RTT Response
     Stage 2: Broadcast RTT Time
-    Stage 3: Broadcast current shortest RTT
     """
     TYPE_STRING = "rtt"
     TYPE_CODE = "R"
@@ -172,7 +173,10 @@ class RTTMessage(BaseMessage):
         super().__init__(**kwargs)
         self.stage = kwargs.get("stage", '0')
         self.rtt_sum = kwargs.get("rtt_sum", "")
+        self.send_time = kwargs.get("send_time", "")
+        self.rtt_id = kwargs.get("rtt_id", "")
         self.network_size = kwargs.get("network_size", "")
+        self.init_time = time.time()
 
     @classmethod
     def parse_payload_to_kwargs(cls, packet_payload):
@@ -187,16 +191,24 @@ class RTTMessage(BaseMessage):
             }
         return {
             'stage': packet_payload[0],
-            'rtt_sum': packet_payload[1:]
+            # 'rtt_id': packet_payload[1],
+            'send_time': packet_payload[1:]
         }
 
     def serialize_payload_for_packet(self):
         """ Specify how to serialize Message Payload to packet string """
-        return self.stage + str(self.network_size) + str(self.rtt_sum)
+        if self.stage == "2":
+            return self.stage + str(self.network_size) + str(self.rtt_sum)
+        # Add send time
+        return self.stage + str(self.rtt_id) + str(time.time())
 
     def get_rtt_sum(self):
         if self.stage == '2':
             return float(self.rtt_sum)
+
+    def get_rtt(self):
+        if self.stage != '2':
+            return self.init_time - float(self.send_time)
 
     def get_network_size(self):
         if self.stage == "2":

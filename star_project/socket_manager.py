@@ -57,16 +57,15 @@ class SocketManager():
             target=self.watch_for_ack_timeout, daemon=True)
         ack_timeout_thread.start()
 
-        self._log.debug("Socket Online...")
         self.report()
 
-    def send_message(self, message):
-        """ Queues up a message to be sent out """
-        self.outbox.put(message)
-        self._log.debug(
-            f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
+    # def send_message(self, message):
+    #     """ Queues up a message to be sent out """
+    #     self.outbox.put(message)
+    #     self._log.debug(
+    #         f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
 
-    def send_message_reliably(self, message):
+    def send_message(self, message):
         """ Queues up a message to be sent out """
         self.outbox.put(message)
         if message.TYPE_STRING != "ack":
@@ -103,7 +102,14 @@ class SocketManager():
             sent_message, time_sent = self.awaiting_ack.get()
             timeout_time = time.time() + self.ACK_TIMEOUT
             if time_sent + self.ACK_TIMEOUT < time.time():
-                self.send_message(sent_message)
+                sent_message.resent += 1
+                if sent_message.resent < 5:
+                    self.send_message(sent_message)
+                    self._log.write_to_log(
+                        "ACK", f"Resending message to {sent_message.destination_node.get_name()}")
+                else:
+                    self._log.write_to_log(
+                        "ACK", f"Drop message to {sent_message.destination_node.get_name()}")
             else:
                 self.awaiting_ack.put((sent_message, time_sent))
 
@@ -120,10 +126,10 @@ class SocketManager():
             destination_node=self.node)
         self._put_new_message_in_queue(new_message)
         self.report()
-        # if new_message.TYPE_STRING != "ack":
-        #     ack_message = MessageFactory.generate_ack_message(new_message)
-        #     self._log.debug("Sending ACK")
-        #     self.send_message(ack_message)
+        if new_message.TYPE_STRING != "ack":
+            ack_message = MessageFactory.generate_ack_message(new_message)
+            self._log.debug("Sending ACK")
+            self.send_message(ack_message)
 
     def _put_new_message_in_queue(self, message):
         """
