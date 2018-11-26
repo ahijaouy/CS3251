@@ -35,6 +35,7 @@ class StarNode():
         self.num_nodes = num_nodes
         self.central_node = None  # Stores name of central node
         self.shortest_rtt = self.INITIAL_RTT_DEFAULT  # placeholder
+        self.rtt_calcd_for_size = 0
 
         self.rtt_queue = queue.Queue()
         self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
@@ -282,6 +283,7 @@ class StarNode():
                     self.initiate_rtt_calculation()
                     self._log.write_to_log(
                         "Heartbeat", f'{node.name} has stopped responding.')
+            time.sleep(3)
 
     def watch_for_heartbeat_messages(self):
         """ Waits and handles all heartbeat messages that arrive to this node. """
@@ -367,13 +369,15 @@ class StarNode():
             "RTT", f'Received RTT Sum Broadcast from {sender}. RTT Sum: {new_rtt_sum} ')
 
         if network_size == self.directory.size() and new_rtt_sum < self.shortest_rtt:
+            self.rtt_calcd_for_size = network_size
             self.shortest_rtt = new_rtt_sum
             self.central_node = sender
             self._log.write_to_log("RTT", f'New Central Node picked: {sender}')
 
     def initiate_rtt_calculation(self, when=3):
         self.rtt_countdown = time.time() + when
-        self.shortest_rtt = 9
+        if self.directory.size() != self.rtt_calcd_for_size:
+            self.shortest_rtt = 9
 
     def calculate_rtt_timer(self):
         """
@@ -420,6 +424,7 @@ class StarNode():
 
         # Check to see if self is shortest RTT
         if rtt_sum < self.shortest_rtt:
+            self.rtt_calcd_for_size = self.directory.size()
             self.shortest_rtt = rtt_sum
             self.central_node = self.name
             self._log.write_to_log("RTT", f'New Central Node picked: SELF')
