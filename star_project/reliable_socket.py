@@ -35,19 +35,13 @@ class ReliableSocket():
     def start_listening(self):
         """ Blocks and listens for incoming packets """
         try:
-            self._log.debug(f'Socket is listening...')
             while True:
-                try:
-                    data, address = self.sock.recvfrom(64000)
-                    print("packet received")
-                    # self.send_ack(data, address)
-                    self.process_incoming_packet(data, address)
-                    print("Processed successfully")
-                except Exception as e:
-                    print(e)
+                data, address = self.sock.recvfrom(655070)
+                # self.send_ack(data, address)
+                self.process_incoming_packet(data, address)
 
         except Exception as e:
-            self._log.error("in ReliableSocket while listening for packets", e)
+            print(e)
         finally:
             self.sock.close()
 
