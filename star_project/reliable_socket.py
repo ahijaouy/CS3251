@@ -70,10 +70,11 @@ class ReliableSocket():
         data, destination = message.prepare_packet()
         try:
             self.sock.sendto(data, destination)
-            self._log.debug(
-                f'Message of type {message.TYPE_STRING} sent to {destination[0]}')
+            if message.TYPE_CODE == "A":
+                print("APP MESSAGE SENT SUCCESSFULLY")
             return message.uuid
         except Exception as e:
+            print(e)
             self._log.error("in ReliableSocket while sending message", e)
 
     """ 
