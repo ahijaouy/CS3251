@@ -283,7 +283,7 @@ class StarNode():
                     self.initiate_rtt_calculation()
                     self._log.write_to_log(
                         "Heartbeat", f'{node.name} has stopped responding.')
-            time.sleep(3)
+            time.sleep(2)
 
     def watch_for_heartbeat_messages(self):
         """ Waits and handles all heartbeat messages that arrive to this node. """

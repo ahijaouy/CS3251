@@ -23,7 +23,7 @@ from logger import Logger
 
 
 class SocketManager():
-    ACK_TIMEOUT = 1.5  # seconds
+    ACK_TIMEOUT = 1.1  # seconds
 
     def __init__(self, name, port, report_func, verbose=False):
         self._log = Logger(name, verbose)
