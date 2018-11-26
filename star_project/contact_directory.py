@@ -52,10 +52,11 @@ class ContactDirectory():
         if name == self.name:
             return self.star_node
         with self.lock:
-            node = self.directory[name]
-            if node.is_online:
-                return self.directory[name]
-            raise ValueError()
+            # node = self.directory[name]
+            # if node.is_online:
+            #     return self.directory[name]
+            # raise ValueError()
+            return self.directory[name]
 
     def exists(self, name):
         with self.lock:
