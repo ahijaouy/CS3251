@@ -58,7 +58,6 @@ class StarNode():
     def start(self):
         """ Startes the StarNode and kicks off all lifecycle functions"""
         self.socket_manager.start()
-        self._log.debug("Socket Started Successfully")
 
         if self.poc != None:
             self._start_thread(self.contact_poc, daemon=True)
@@ -89,7 +88,6 @@ class StarNode():
                 destination_node=node,
                 disconnect="1"
             )
-            self._log.debug(f'Sending disconnect message to {node.name}')
             self.socket_manager.send_message(bye_message)
         self._log.write_to_log("Terminated", 'Node has gracefully terminated.')
 
@@ -197,7 +195,6 @@ class StarNode():
                     sender=message.sender,
                     data=message.data,
                 )
-                self._log.debug(f'Sending app message to {node.name}')
                 self.socket_manager.send_message(app_message)
 
     def _is_central_node(self):
@@ -220,23 +217,19 @@ class StarNode():
         while True:
             message = self.socket_manager.get_discovery_message()
             if message.disconnect == "1":
-                # handle disconnecting node
-                self.directory.remove(message.origin_node.get_name())
-                self.initiate_rtt_calculation()
-                self._log.write_to_log(
-                    "Discovery", f'{message.origin_node.get_name()} has terminated.')
-                self._log.debug(
-                    f'Removed {message.origin_node.get_name()} from directory')
+                self.handle_disconnect(message)
             elif message.direction == "0":
                 self.respond_to_discovery_message(message)
-                self._log.debug(
-                    f'Handled Discovery Message from {message.origin_node.name}')
             elif message.direction == "1":
                 serialized_directory = message.get_payload()
                 self.directory.merge_serialized_directory(serialized_directory)
                 self.initiate_rtt_calculation()
-                self._log.debug(
-                    f'Directory updated (n={self.directory.size()})')
+
+    def handle_disconnect(self, message):
+        name = message.origin_node.get_name()
+        self.directory.remove(name)
+        self.initiate_rtt_calculation()
+        self._log.write_to_log("Discovery", f'{name} has terminated.')
 
     def respond_to_discovery_message(self, message):
         """ Responds to Discovery Message by sending node's directory """
@@ -370,11 +363,7 @@ class StarNode():
         self._log.write_to_log(
             "RTT", f'Received RTT Sum Broadcast from {sender}. RTT Sum: {new_rtt_sum} ')
 
-        if network_size == self.directory.size() and new_rtt_sum < self.shortest_rtt:
-            self.rtt_calcd_for_size = network_size
-            self.shortest_rtt = new_rtt_sum
-            self.central_node = sender
-            self._log.write_to_log("RTT", f'New Central Node picked: {sender}')
+        self.set_central_node()
 
     def initiate_rtt_calculation(self, when=3):
         self.rtt_countdown = time.time() + when
@@ -425,12 +414,7 @@ class StarNode():
         self._log.write_to_log("RTT", f'New RTT sum computed: {rtt_sum} ')
         self.directory.star_node.update_rtt_sum(rtt_sum, self.directory.size())
 
-        # Check to see if self is shortest RTT
-        if rtt_sum < self.shortest_rtt:
-            self.rtt_calcd_for_size = self.directory.size()
-            self.shortest_rtt = rtt_sum
-            self.central_node = self.name
-            self._log.write_to_log("RTT", f'New Central Node picked: SELF')
+        self.set_central_node()
 
         # Broadcast RTT Sums
         for node in self.directory.get_current_list():
@@ -442,6 +426,12 @@ class StarNode():
                 rtt_sum=rtt_sum
             )
             self.socket_manager.send_message(rtt_message)
+
+    def set_central_node(self):
+        name, rtt = self.directory.check_central_node()
+        self.central_node = name
+        self.shortest_rtt = rtt
+        self._log.write_to_log("RTT", f'Central Node: {name}')
 
     """
     Util Functions

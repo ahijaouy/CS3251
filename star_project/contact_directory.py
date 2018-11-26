@@ -33,6 +33,20 @@ class ContactDirectory():
         self.star_node = star_node
         self.add(star_node)
 
+    def check_central_node(self):
+        size = self.size()
+        with self.lock:
+            central = self.name
+            rtt = self.star_node.rtt_sum["sum"]
+            for name in self.directory:
+                node = self.directory[name]
+                node_rtt = node.rtt_sum["sum"]
+                node_rtt_size = node.rtt_sum["network_size"]
+                if node_rtt < rtt and node.is_online and node_rtt_size == size:
+                    central = name
+                    rtt = node_rtt
+            return central, rtt
+
     def size(self):
         with self.lock:
             size = 0
