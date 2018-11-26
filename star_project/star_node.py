@@ -365,6 +365,8 @@ class StarNode():
         new_rtt_sum = message.get_rtt_sum()
         sender = message.origin_node.get_name()
         network_size = message.get_network_size()
+        self.directory.get(sender).update_rtt_sum(new_rtt_sum, network_size)
+
         self._log.write_to_log(
             "RTT", f'Received RTT Sum Broadcast from {sender}. RTT Sum: {new_rtt_sum} ')
 
@@ -421,6 +423,7 @@ class StarNode():
             rtt_sum += rtt
             self.directory.get(name).rtt = rtt
         self._log.write_to_log("RTT", f'New RTT sum computed: {rtt_sum} ')
+        self.directory.star_node.update_rtt_sum(rtt_sum, self.directory.size())
 
         # Check to see if self is shortest RTT
         if rtt_sum < self.shortest_rtt:

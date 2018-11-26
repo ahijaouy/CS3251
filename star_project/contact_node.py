@@ -17,6 +17,7 @@ class ContactNode():
         self.ip = ip
         self.port = port
         self.rtt = 9999999999
+        self.rtt_sum = {"sum": 0, "network_size": 0}
         self.last_contact = time.time()
         self.is_online = True
 
@@ -25,6 +26,10 @@ class ContactNode():
         "returns a new instance of ContactNode from json"
         data = json.loads(raw_json)
         return cls(name=data["name"], ip=data["ip"], port=data["port"])
+
+    def update_rtt_sum(self, new_sum, size):
+        self.rtt_sum.sum = new_sum
+        self.rtt_sum.size = size
 
     def get_address(self):
         return (self.ip, self.port)
