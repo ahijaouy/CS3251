@@ -111,10 +111,12 @@ class SocketManager():
         to put it in the proper message queue. Responds to sender w/ ACK packet
         """
         try:
+            print("inside process packet")
             new_message = MessageFactory.create_message(
                 packet_data=data,
                 origin_address=address,
                 destination_node=self.node)
+            print(f"message created type: {new_message.TYPE_STRING}")
             self._put_new_message_in_queue(new_message)
             self.report()
             if new_message.TYPE_STRING != "ack":
