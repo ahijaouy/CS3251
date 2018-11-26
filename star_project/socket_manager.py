@@ -106,7 +106,7 @@ class SocketManager():
                 if sent_message.resent < 5:
                     self.send_message(sent_message)
                     self._log.write_to_log(
-                        "ACK", f"Resending message {sent_message.uuid} to {sent_message.destination_node.get_name()}")
+                        "ACK", f"Attempt {sent_message.resent} to resend {sent_message.TYPE_STRING} message {sent_message.uuid} to {sent_message.destination_node.get_name()}")
                 else:
                     self._log.write_to_log(
                         "ACK", f"Drop message to {sent_message.destination_node.get_name()}")

@@ -355,7 +355,8 @@ class StarNode():
 
     def handle_rtt_response(self, message):
         sender = message.origin_node.get_name()
-        self._log.write_to_log("RTT", f'Response received from {sender} ')
+        self._log.write_to_log(
+            "RTT", f'Response received from {sender}. RTT to node is {message.get_rtt()} ')
         self.rtt_queue.put((sender, message))
 
     def handle_rtt_broadcast(self, message):
