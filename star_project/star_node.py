@@ -26,7 +26,7 @@ class StarNode():
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
     INITIAL_RTT_DEFAULT = 10
-    RTT_COUNTDOWN_INIT = 250
+    RTT_COUNTDOWN_INIT = 180
 
     def __init__(self, name, port, num_nodes, poc_ip=0, poc_port=0, verbose=False):
         # Initialize instance variables
@@ -243,8 +243,6 @@ class StarNode():
 
     def send_discovery_message(self, destination):
         """ Sends a Discovery Request Message to the destination"""
-        self._log.debug(
-            f'###### about to send Discovery message to {destination.get_name()}')
         discovery_message = MessageFactory.generate_discovery_message(
             origin_node=self.socket_manager.node,
             destination_node=destination,
@@ -285,12 +283,8 @@ class StarNode():
             self.ensure_sender_is_known(message)
             if message.direction == "0":
                 self.respond_to_heartbeat_message(message)
-                self._log.debug(
-                    f'Responded to Heartbeat Message from {message.origin_node.name}')
             elif message.direction == "1":
                 self.handle_heartbeat_response(message)
-                self._log.debug(
-                    f'Recieved Heartbeat Response from {message.origin_node.name}')
 
     def handle_heartbeat_response(self, message):
         """ Handle a response Heartbeat message """
@@ -313,7 +307,6 @@ class StarNode():
                     origin_node=self.socket_manager.node,
                     destination_node=node
                 )
-                self._log.debug(f'Sending heartbeat to {node.name}')
                 self.socket_manager.send_message(heartbeat_message)
             time.sleep(3)
 

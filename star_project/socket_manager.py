@@ -59,25 +59,16 @@ class SocketManager():
 
         self.report()
 
-    # def send_message(self, message):
-    #     """ Queues up a message to be sent out """
-    #     self.outbox.put(message)
-    #     self._log.debug(
-    #         f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
-
     def send_message(self, message):
-        """ Queues up a message to be sent out """
+        """ Queues up a message to be sent out reliably with acks"""
         self.outbox.put(message)
         if message.TYPE_STRING != "ack":
             self.awaiting_ack.put((message, time.time()))
-        self._log.debug(
-            f'Message {message.TYPE_STRING} added to outbox. Outbox size: {self.outbox.qsize()} ')
 
     def watch_for_acks(self):
         """ Wait for incoming ACKs and start a therad to process them """
         while True:
             ack_message = self.messages['ack'].get()
-            self._log.debug("ACK Received")
             process_ack_thread = Thread(
                 target=self.process_ack, args=(ack_message,), daemon=True)
             process_ack_thread.start()
@@ -89,7 +80,6 @@ class SocketManager():
             sent_message, time_sent = self.awaiting_ack.get()
             if sent_message.get_message_id() == ack_message.ack_id:
                 processing = False
-                self._log.debug("ACK Processed")
             else:
                 self.awaiting_ack.put((sent_message, time_sent))
 
@@ -128,7 +118,6 @@ class SocketManager():
         self.report()
         if new_message.TYPE_STRING != "ack":
             ack_message = MessageFactory.generate_ack_message(new_message)
-            self._log.debug("Sending ACK")
             self.send_message(ack_message)
 
     def _put_new_message_in_queue(self, message):
@@ -138,7 +127,6 @@ class SocketManager():
         """
         message_type = message.TYPE_STRING
         self.messages[message_type].put(message)
-        self._log.debug(f'New Message of type: {message_type}')
 
     def get_heartbeat_message(self):
         """ Blocks and returns a heartbeat message when avaiable """
