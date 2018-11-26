@@ -110,15 +110,18 @@ class SocketManager():
         Takes an incomming packet and uses the Type field of the packet
         to put it in the proper message queue. Responds to sender w/ ACK packet
         """
-        new_message = MessageFactory.create_message(
-            packet_data=data,
-            origin_address=address,
-            destination_node=self.node)
-        self._put_new_message_in_queue(new_message)
-        self.report()
-        if new_message.TYPE_STRING != "ack":
-            ack_message = MessageFactory.generate_ack_message(new_message)
-            self.send_message(ack_message)
+        try:
+            new_message = MessageFactory.create_message(
+                packet_data=data,
+                origin_address=address,
+                destination_node=self.node)
+            self._put_new_message_in_queue(new_message)
+            self.report()
+            if new_message.TYPE_STRING != "ack":
+                ack_message = MessageFactory.generate_ack_message(new_message)
+                self.send_message(ack_message)
+        except Exception as e:
+            print(e)
 
     def _put_new_message_in_queue(self, message):
         """
