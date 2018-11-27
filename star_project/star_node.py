@@ -382,6 +382,7 @@ class StarNode():
     def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
         self._log.write_to_log("RTT", "Starting new RTT Calc")
+        print("INSIDE CALC RTT")
         node_list = self.directory.get_current_list()
         for node in node_list:
             rtt_message = MessageFactory.generate_rtt_message(
@@ -398,8 +399,11 @@ class StarNode():
             rtt_responses[name] = message.get_rtt()
 
         if len(rtt_responses) == len(node_list):
+            print("ABOUT TO PROCESS RTT")
             self.process_rtt_times(rtt_responses)
+            print("DONE PROCESSING RTT")
         else:
+            print("RECALCULATE RTT DUE TO TIMEOUT")
             self.initiate_rtt_calculation(when=1)
             self._log.write_to_log(
                 "RTT", "Timed out waiting for RTT Responses.")
