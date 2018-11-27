@@ -396,9 +396,12 @@ class StarNode():
         rtt_responses = {}
         while (time.time() < timeout) and (len(rtt_responses) < len(node_list)):
             print("Pre queue get")
-            name, message = self.rtt_queue.get()
-            print("After queue get")
-            rtt_responses[name] = message.get_rtt()
+            try:
+                name, message = self.rtt_queue.get(timeout=2)
+                print("After queue get")
+                rtt_responses[name] = message.get_rtt()
+            except Exception as e:
+                pass
 
         print("outside while loop")
         if len(rtt_responses) == len(node_list):
