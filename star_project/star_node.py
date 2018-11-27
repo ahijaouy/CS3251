@@ -366,14 +366,17 @@ class StarNode():
         """
         Blocks and calculates RTT whenever self.rtt_countdown < time.time()
         """
-        while True:
-            while time.time() < self.rtt_countdown:
-                time.sleep(.5)
-            prev_time = self.rtt_countdown
+        try:
+            while True:
+                while time.time() < self.rtt_countdown:
+                    time.sleep(.5)
+                prev_time = self.rtt_countdown
 
-            self.calculate_rtt()
-            if self.rtt_countdown == prev_time:
-                self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
+                self.calculate_rtt()
+                if self.rtt_countdown == prev_time:
+                    self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
+        except Exception as e:
+            print(e)
 
     def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
