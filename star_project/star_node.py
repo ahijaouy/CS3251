@@ -26,7 +26,7 @@ class StarNode():
     RTT_TIMEOUT = 5  # seconds
     NO_CONTACT_TIMEOUT = 60 * 3  # 3 minutes
     INITIAL_RTT_DEFAULT = 10
-    RTT_COUNTDOWN_INIT = 180
+    RTT_COUNTDOWN_INIT = 6
 
     def __init__(self, name, port, num_nodes, poc_ip=0, poc_port=0, verbose=False):
         # Initialize instance variables
