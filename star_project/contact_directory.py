@@ -80,7 +80,10 @@ class ContactDirectory():
 
     def remove(self, name):
         with self.lock:
-            self.directory[name].is_online = False
+            copy = dict(self.directory)
+            del copy[name]
+            self.directory = copy
+            # self.directory[name].is_online = False
 
     def get_current_list(self):
         with self.lock:

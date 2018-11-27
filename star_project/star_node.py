@@ -372,6 +372,7 @@ class StarNode():
                     time.sleep(.5)
                 prev_time = self.rtt_countdown
 
+                self._log.write_to_log("RTT", f'About to start new RTT Calc')
                 self.calculate_rtt()
                 if self.rtt_countdown == prev_time:
                     self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
