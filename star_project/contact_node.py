@@ -10,7 +10,7 @@ import time
 
 
 class ContactNode():
-    HEARTBEAT_TIMEOUT = 7  # seconds
+    HEARTBEAT_TIMEOUT = 15  # seconds
 
     def __init__(self, name, ip, port):
         self.name = name

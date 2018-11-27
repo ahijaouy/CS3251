@@ -93,7 +93,7 @@ class SocketManager():
             timeout_time = time.time() + self.ACK_TIMEOUT
             if time_sent + self.ACK_TIMEOUT < time.time():
                 sent_message.resent += 1
-                if sent_message.resent < 5:
+                if sent_message.resent < 15:
                     self.send_message(sent_message)
                     self._log.write_to_log(
                         "ACK", f"Attempt {sent_message.resent} to resend {sent_message.TYPE_STRING} message {sent_message.uuid} to {sent_message.destination_node.get_name()}")
