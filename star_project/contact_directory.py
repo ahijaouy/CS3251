@@ -6,7 +6,7 @@ Stores information about multiple Contact Nodes
 """
 
 import json
-import threading
+from threading import RLock
 from contact_node import ContactNode
 from logger import Logger
 
@@ -18,9 +18,7 @@ class ContactDirectory():
         self._log = Logger(name, verbose=verbose)
         self.directory = {}
         self.star_node = None
-        # self.central_node = None
-        # self.central_node_lock = threading.RLock()
-        self.lock = threading.RLock()
+        self.lock = RLock()
 
     def poc_not_added(self, poc):
         for key in self.directory:
@@ -66,10 +64,6 @@ class ContactDirectory():
         if name == self.name:
             return self.star_node
         with self.lock:
-            # node = self.directory[name]
-            # if node.is_online:
-            #     return self.directory[name]
-            # raise ValueError()
             return self.directory[name]
 
     def exists(self, name):
@@ -80,9 +74,6 @@ class ContactDirectory():
 
     def remove(self, name):
         with self.lock:
-            # copy = dict(self.directory)
-            # del copy[name]
-            # self.directory = copy
             self.directory[name].is_online = False
 
     def get_current_list(self):

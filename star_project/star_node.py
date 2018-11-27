@@ -371,8 +371,6 @@ class StarNode():
                 while time.time() < self.rtt_countdown:
                     time.sleep(.5)
                 prev_time = self.rtt_countdown
-                print("WOOHOOO WOOHOOO")
-                # self._log.write_to_log("RTT", f'About to start new RTT Calc')
                 self.calculate_rtt()
                 if self.rtt_countdown == prev_time:
                     self.rtt_countdown = time.time() + self.RTT_COUNTDOWN_INIT
@@ -382,7 +380,6 @@ class StarNode():
     def calculate_rtt(self):
         """ Sends a RTT Message to all ContactNodes """
         self._log.write_to_log("RTT", "Starting new RTT Calc")
-        print("INSIDE CALC RTT")
         node_list = self.directory.get_current_list()
         for node in node_list:
             rtt_message = MessageFactory.generate_rtt_message(
@@ -395,21 +392,15 @@ class StarNode():
         timeout = time.time() + 6
         rtt_responses = {}
         while (time.time() < timeout) and (len(rtt_responses) < len(node_list)):
-            print("Pre queue get")
             try:
                 name, message = self.rtt_queue.get(timeout=2)
-                print("After queue get")
                 rtt_responses[name] = message.get_rtt()
             except Exception as e:
                 pass
 
-        print("outside while loop")
         if len(rtt_responses) == len(node_list):
-            print("ABOUT TO PROCESS RTT")
             self.process_rtt_times(rtt_responses)
-            print("DONE PROCESSING RTT")
         else:
-            print("RECALCULATE RTT DUE TO TIMEOUT")
             self.initiate_rtt_calculation(when=1)
             self._log.write_to_log(
                 "RTT", "Timed out waiting for RTT Responses.")
